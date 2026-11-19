@@ -1,11 +1,6 @@
 ---
-type Derived = {
-  env: number[];
-  notes: [number, number][];
-  heat: string[];
-  colors: [number, string][];
-};
-const { derived } = Astro.props as { derived: Derived | undefined };
+import type { Timeline } from '../../lib/vault';
+const { derived } = Astro.props as { derived: Timeline };
 
 // Pitch lane: x is one of 120 analysis windows, y is semitones down from C8.
 const lo = 28,
@@ -17,7 +12,7 @@ const pitchY = (m: number) => pct(((hi - m + 0.5) / pitchRows) * 100);
 const octaves: number[] = [];
 for (let m = Math.ceil(lo / 12) * 12; m <= hi; m += 12) octaves.push(m);
 
-function pitchLane(p: Derived, silent: boolean) {
+function pitchLane(p: Timeline, silent: boolean) {
   const heat = p.heat
     .map((column, x) =>
       [...column]
@@ -45,7 +40,7 @@ function pitchLane(p: Derived, silent: boolean) {
   return `<svg viewBox="0 -0.5 ${windows} ${pitchRows}" preserveAspectRatio="none" shape-rendering="crispEdges">${heat}${grid}${silent ? '' : `<g class="fade">${notes}</g>`}</svg>`;
 }
 
-function loudnessLane(p: Derived) {
+function loudnessLane(p: Timeline) {
   const env = p.env || [];
   const y = (d: number) => (-Math.max(-60, Math.min(0, d))).toFixed(2);
   const line = env

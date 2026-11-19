@@ -5,18 +5,20 @@ import Layout from '../../../layouts/Layout.astro';
 import SiteHeader from '../../../components/SiteHeader.astro';
 import FieldScores from '../../../components/analytics/FieldScores.astro';
 import Score from '../../../components/analytics/Score.astro';
-import { results, metrics, format, provenance } from '../../../lib/results';
+import { pieceValues, metrics, format, provenance } from '../../../lib/results';
 import '../../../styles/analytics.css';
 
-export function getStaticPaths() {
-  return results.map((piece) => ({
-    params: { slug: piece.slug },
-    props: { piece },
-  }));
-}
-
-const { piece } = Astro.props;
-const base = '/analytics/' + piece.slug;
+const entry = Astro.locals.piece!;
+const detail = Astro.locals.detail!;
+const piece = { ...entry, values: pieceValues(entry), run: detail.measurements, analysis: detail.analysis };
+const field = Astro.locals.vault.pieces.map(({ slug, modelName, title, measurements }) => ({
+  id: slug, model: modelName, title, wall: measurements.wall, lines: measurements.lines,
+  level: measurements.loudness, frames: measurements.frames,
+}));
+const sleeve = {
+  field,
+  piece: { ...field.find(({ id }) => id === entry.slug)!, env: detail.timeline.env, colors: detail.timeline.colors },
+};
 const headline: (typeof metrics)[number][] = [
   metrics[0],
   metrics[1],
@@ -38,7 +40,7 @@ const runFields = [
 
 <Layout
   title={`${piece.title} · ${piece.modelName} · Bach Bench`}
-  poster={base + '/card.png'}
+  poster={piece.posterUrl}
 >
   <SiteHeader />
   <main class="measurements">
@@ -47,20 +49,21 @@ const runFields = [
       <Button
         variant="solid"
         icon="download"
-        href={base + '/card.png'}
+        class="save-sleeve"
+        href="#sleeve"
         download={`bach-bench-${piece.slug}.png`}>Save card</Button
       >
     </div>
     <h1 class="sr-only">{piece.title} · {piece.modelName}</h1>
     <img
       class="sleeve"
-      src={base + '/card.png'}
+      id="sleeve"
       width="1080"
       height="1350"
       alt={`Sound waveform and measured figures for ${piece.title} by ${piece.modelName}`}
     />
-    <FieldScores piece={piece} />
-    <Score />
+    <FieldScores piece={entry} score={detail.scores} />
+    <Score derived={detail.timeline} />
     <dl class="tiles tiles--figures">
       {
         headline.map(({ key, label, unit }) => (
@@ -140,8 +143,41 @@ const runFields = [
       </dl>
     </section>
     <footer>
-      <a href={base + '/piece.js.txt'}>Module source</a>
-      <a href={base + '/reply.txt'}>Full reply</a>
+      <a href={detail.moduleUrl}>Module source</a>
+      <a href={detail.replyUrl}>Full reply</a>
     </footer>
+    <script
+      is:inline
+      type="application/json"
+      id="sleeve-data"
+      set:html={JSON.stringify(sleeve).replace(/</g, '\\u003c')}
+    />
   </main>
 </Layout>
+
+<script>
+  import { renderSleeve } from '../../../lib/sleeve.mjs';
+
+  const img = document.querySelector<HTMLImageElement>('#sleeve')!;
+  const link = document.querySelector<HTMLAnchorElement>('.save-sleeve')!;
+  const payload = JSON.parse(document.querySelector('#sleeve-data')!.textContent!);
+
+  const card = Promise.all([
+    document.fonts.load('600 128px Geist'),
+    document.fonts.load('500 40px Geist'),
+    document.fonts.load('400 28px Geist'),
+  ]).then(() => {
+    const image = 'data:image/png;base64,' + renderSleeve(payload);
+    img.src = image;
+    link.href = image;
+  }).catch((error) => {
+    console.error('Could not draw the Piece card', error);
+  });
+
+  link.addEventListener('click', async (event) => {
+    if (link.href.startsWith('data:')) return;
+    event.preventDefault();
+    await card;
+    if (link.href.startsWith('data:')) link.click();
+  });
+</script>

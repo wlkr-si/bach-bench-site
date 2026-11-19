@@ -2,10 +2,9 @@
 import '@fontsource-variable/geist';
 import '@fontsource-variable/geist-mono';
 import '../styles/global.css';
-import { pieces } from '../lib/pieces';
 import { publicAddress } from '../lib/share';
 
-const { title = 'Bach Bench', poster = pieces[0]?.poster } = Astro.props;
+const { title = 'Bach Bench', poster = Astro.locals.vault?.pieces[0]?.posterUrl } = Astro.props;
 const address = publicAddress(Astro.url.pathname);
 const image = poster && publicAddress(poster);
 ---

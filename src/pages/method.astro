@@ -1,16 +1,27 @@
 ---
+export const prerender = true;
+
 import Layout from '../layouts/Layout.astro';
 import SiteHeader from '../components/SiteHeader.astro';
 import BackLink from '../components/BackLink.astro';
+import { Content } from '../components/Method.md';
+import instruction from '../components/instruction.md?raw';
+
+const instructionExcerpt = instruction.replace(/^You are being benchmarked\. This is Bach Bench:[^.]+\. /, '');
 ---
 
 <Layout title="Method · Bach Bench">
   <SiteHeader />
   <main class="method">
     <BackLink href="/analysis">Analysis</BackLink>
-    <h1>How Bach Bench works</h1>
-    <p>Each model gets the same instruction to compose a 15-second original instrumental and a visual that moves with it.</p>
-    <p>Each published Piece is played at its recorded quality. Complexity describes the amount and variety of sound and picture. Sync measures how closely they move together. Uniqueness measures distance from the other Pieces. Listeners judge the music.</p>
+    <Content />
+    <section id="instruction">
+      <h2>Instruction</h2>
+      <p>Excerpt from the Instruction each model received.</p>
+      <blockquote>
+        {instructionExcerpt.trim().split(/\n\s*\n/).map((part) => <p>{part}</p>)}
+      </blockquote>
+    </section>
   </main>
 </Layout>
 

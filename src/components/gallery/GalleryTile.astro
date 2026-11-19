@@ -7,8 +7,8 @@ interface Props {
     slug: string;
     title: string;
     modelName: string;
-    poster: string;
-    clip: string;
+    posterUrl: string;
+    clipUrl: string;
   };
   eager: boolean;
 }
@@ -16,11 +16,11 @@ interface Props {
 const { piece, eager } = Astro.props;
 ---
 
-<li data-tile data-clip={piece.clip}>
+<li data-tile data-clip={piece.clipUrl}>
   <a href={`/p/${piece.slug}`}>
     <span class="poster">
       <img
-        src={piece.poster}
+        src={piece.posterUrl}
         alt=""
         width="1080"
         height="1350"

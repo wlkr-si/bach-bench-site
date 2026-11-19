@@ -12,6 +12,7 @@
     "charts:images": "node scripts/chart-images.mjs"
   },
   "dependencies": {
+    "@astrojs/cloudflare": "14.3.0",
     "@astrojs/react": "7.1.1",
     "@fontsource-variable/geist": "5.3.0",
     "@fontsource-variable/geist-mono": "^5.2.0",
@@ -30,11 +31,11 @@
     "eslint": "10.15.0",
     "espree": "11.2.0",
     "globals": "17.14.0",
+    "parse5": "8.1.1",
+    "playwright": "1.65.1",
     "prettier": "3.9.6",
     "prettier-plugin-astro": "0.14.1",
     "typescript": "6.0.3",
-    "playwright": "1.65.1",
-    "parse5": "8.1.1",
     "wrangler": "4.165.0"
   },
   "engines": {

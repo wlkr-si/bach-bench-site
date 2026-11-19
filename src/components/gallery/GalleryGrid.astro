@@ -1,6 +1,6 @@
 ---
 import GalleryTile from './GalleryTile.astro';
-import { pieces } from '../../lib/pieces';
+const { pieces } = Astro.locals.vault;
 ---
 
 {pieces.length === 0 ? <p>No Pieces available.</p> : <ul class="gallery-grid" role="list">

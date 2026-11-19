@@ -1,21 +1,3 @@
-type SyncMeasure = { score: number };
-type Score = {
-  complexity: number | null;
-  musicComplexity?: number;
-  pictureComplexity?: number;
-  sync: number | null;
-  uniqueness: number | null;
-  balance: number | null;
-  costUsd: number | null;
-  syncMeasures?: {
-    event?: SyncMeasure;
-    continuous?: SyncMeasure;
-  };
-};
-
-export const scores: ReadonlyMap<string, Score> = new Map();
-export const chartData = { titleWordCounts: [], pieces: [] };
-
 export const scoreMetrics = [
   { key: 'complexity', label: 'Complexity', unit: '', say: 'How much is going on in the sound and picture, scored 0 to 100 by a fixed formula.' },
   { key: 'sync', label: 'Sync', unit: '', say: 'How closely the picture moves with the sound, scored 0 to 100 by a fixed formula.' },

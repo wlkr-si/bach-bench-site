@@ -1,17 +1,11 @@
 ---
 import Layout from '../../layouts/Layout.astro';
 import Stage from '../../components/Stage.astro';
-import { pieces } from '../../lib/pieces';
 
-export function getStaticPaths() {
-  return pieces.map((piece, index) => ({
-    params: { slug: piece.slug },
-    props: { index, piece },
-  }));
-}
-const { index, piece } = Astro.props;
+const piece = Astro.locals.piece!;
+const initial = Astro.locals.vault.pieces.indexOf(piece);
 ---
 
-<Layout title={`${piece.title} · ${piece.modelName}`} poster={piece.poster}
-  ><Stage initial={index} /></Layout
->
+<Layout title={`${piece.title} · ${piece.modelName}`} poster={piece.posterUrl}>
+  <Stage initial={initial} />
+</Layout>

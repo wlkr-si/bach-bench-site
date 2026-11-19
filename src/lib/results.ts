@@ -1,21 +1,5 @@
-import { scores, scoreMetrics } from './scores';
-import { pieces } from './pieces';
-
-type Reading = { value: number | string | null; source: string };
-type Analysis = {
-  moduleLines: number;
-  moduleCharacters: number;
-  replyCharacters: number;
-  drawingMethods: string[];
-  audioNodeCallSites: Record<string, number>;
-  integratedLoudnessLufs: number;
-  truePeakDbfs: number;
-  silentFraction: number;
-  distinctVideoFrames: number;
-};
-
-const runs: ReadonlyMap<string, Record<string, Reading>> = new Map();
-const analyses: ReadonlyMap<string, Analysis> = new Map();
+import { scoreMetrics } from './scores';
+import type { Piece, Reading } from './vault';
 
 export const metrics = [
   { key: 'wall', label: 'Time to make', unit: 's', say: 'Seconds from sending the Instruction to receiving the finished reply.' },
@@ -30,39 +14,9 @@ export const metrics = [
   ...scoreMetrics,
 ] as const;
 
-export const results = pieces.map((piece) => {
-  const run = runs.get(piece.slug) ?? {};
-  const analysis = analyses.get(piece.slug);
-  const score = scores.get(piece.slug);
-  return {
-    ...piece,
-    score,
-    run,
-    analysis,
-    values: {
-      complexity: score?.complexity ?? null,
-      sync: score?.sync ?? null,
-      uniqueness: score?.uniqueness ?? null,
-      balance: score?.balance ?? null,
-      costUsd: score?.costUsd ?? null,
-      wall: (typeof run.wallSeconds?.value === 'number' ? run.wallSeconds.value : null),
-      lines: analysis?.moduleLines,
-      characters: analysis?.moduleCharacters,
-      reply: analysis?.replyCharacters,
-      nodes:
-        analysis?.audioNodeCallSites &&
-        Object.values(analysis?.audioNodeCallSites).reduce(
-          (sum, n) => sum + n,
-          0,
-        ),
-      loudness: analysis?.integratedLoudnessLufs,
-      peak: analysis?.truePeakDbfs,
-      silence:
-        analysis?.silentFraction == null ? null : analysis?.silentFraction * 100,
-      frames: analysis?.distinctVideoFrames,
-    },
-  };
-});
+export function pieceValues(piece: Piece) {
+  return { ...piece.measurements, ...piece.scores };
+}
 
 export function format(value: number | string | null | undefined) {
   return typeof value === 'number'
