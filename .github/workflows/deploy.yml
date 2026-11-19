@@ -1,0 +1,72 @@
+name: Deploy preview
+on:
+  push:
+    branches: [main]
+
+permissions:
+  contents: read
+
+concurrency:
+  group: bach-bench-site-preview
+  cancel-in-progress: false
+
+jobs:
+  deploy:
+    runs-on: ubuntu-latest
+    timeout-minutes: 8
+    steps:
+      - uses: actions/checkout@d23441a48e516b6c34aea4fa41551a30e30af803 # v6
+        with:
+          persist-credentials: false
+      - uses: actions/setup-node@249970729cb0ef3589644e2896645e5dc5ba9c38 # v6
+        with:
+          node-version: '24'
+          package-manager-cache: false
+      - run: npm ci
+      - name: Check and identify the build
+        env:
+          PUBLIC_SITE_URL: ${{ vars.PREVIEW_URL }}
+        run: |
+          set -eu
+          case "$PUBLIC_SITE_URL" in
+            https://bach-bench-site.*.workers.dev) ;;
+            *) echo 'PREVIEW_URL must target the Site preview on workers.dev.' >&2; exit 1 ;;
+          esac
+          npm run check
+          printf '{"commit":"%s"}\n' "$GITHUB_SHA" > dist/build-info.json
+      - name: Confirm this revision is still on main
+        id: revision
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          main=$(gh api "repos/$GITHUB_REPOSITORY/git/ref/heads/main" --jq '.object.sha')
+          if [ "$main" = "$GITHUB_SHA" ]; then
+            echo 'current=true' >> "$GITHUB_OUTPUT"
+          else
+            echo "Skipping superseded revision $GITHUB_SHA."
+          fi
+      - name: Deploy static assets
+        if: steps.revision.outputs.current == 'true'
+        env:
+          CLOUDFLARE_ACCOUNT_ID: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
+          CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN }}
+          WRANGLER_SEND_METRICS: 'false'
+        run: |
+          : "${CLOUDFLARE_ACCOUNT_ID:?Missing Cloudflare account ID}"
+          : "${CLOUDFLARE_API_TOKEN:?Missing single-Worker deploy token}"
+          npm exec --offline -- wrangler deploy --config wrangler.jsonc
+      - name: Verify the deployed commit
+        if: steps.revision.outputs.current == 'true'
+        env:
+          PREVIEW_URL: ${{ vars.PREVIEW_URL }}
+        run: |
+          for try in {1..20}; do
+            if body=$(curl -fsS --max-time 8 "$PREVIEW_URL/build-info.json?revision=$GITHUB_SHA") &&
+                jq -e --arg sha "$GITHUB_SHA" '.commit == $sha' <<< "$body" >/dev/null; then
+              printf '%s\n' "$PREVIEW_URL/build-info.json" "$body"
+              exit 0
+            fi
+            sleep 3
+          done
+          echo "Preview did not report $GITHUB_SHA." >&2
+          exit 1
