@@ -3,9 +3,10 @@ import ResultsCharts from '../components/ResultsCharts.astro';
 import { formatCost } from '../lib/scores';
 import Layout from '../layouts/Layout.astro';
 import SiteHeader from '../components/SiteHeader.astro';
-import { results, metrics, format, provenance } from '../lib/results';
+import { pieceValues, metrics, format } from '../lib/results';
 import '../styles/analytics.css';
 
+const results = Astro.locals.vault.pieces.map((piece) => ({ ...piece, values: pieceValues(piece) }));
 const ranges = metrics.map(({ key }) => {
   const readings = results
     .map((piece) => piece.values[key])
@@ -16,7 +17,7 @@ const ranges = metrics.map(({ key }) => {
 });
 ---
 
-<Layout title="Analysis · Bach Bench" poster={results.length ? '/charts/1-balancevscost-16x9.png' : undefined}>
+<Layout title="Analysis · Bach Bench">
   <SiteHeader current="analysis" />
   <main class="results-page">
     <div class="results-title">
@@ -108,10 +109,7 @@ const ranges = metrics.map(({ key }) => {
                           {key === 'costUsd'
                             ? formatCost(value)
                             : format(value)}
-                          {key === 'wall' &&
-                            provenance(piece.run.wallSeconds) && (
-                              <small>{provenance(piece.run.wallSeconds)}</small>
-                            )}
+                          {key === 'wall' && <small data-wall-source={piece.slug} />}
                         </span>
                       </div>
                     </td>

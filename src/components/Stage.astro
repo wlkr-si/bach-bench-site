@@ -1,10 +1,10 @@
 ---
-import { pieces } from '../lib/pieces';
 import ClipActions from './clip/ClipActions.astro';
 import Icon from './Icon.astro';
 import SiteHeader from './SiteHeader.astro';
 
 const { initial = 0 } = Astro.props;
+const { pieces } = Astro.locals.vault;
 const near = (index: number) => Math.abs(index - initial) <= 1;
 const count = (number: number) => String(number).padStart(2, '0');
 ---
@@ -19,9 +19,9 @@ const count = (number: number) => String(number).padStart(2, '0');
           <div class="st-frame">
             <div class="st-media">
               <video
-                src={piece.clip}
-                poster={near(index) ? piece.poster : undefined}
-                data-poster={piece.poster}
+                src={piece.clipUrl}
+                poster={near(index) ? piece.posterUrl : undefined}
+                data-poster={piece.posterUrl}
                 preload={index === initial ? 'metadata' : 'none'}
                 playsinline
                 aria-hidden="true"

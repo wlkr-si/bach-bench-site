@@ -1,12 +1,14 @@
 ---
-import { results } from '../../lib/results';
+import { pieceValues } from '../../lib/results';
+import type { Piece, VaultDetail } from '../../lib/vault';
 import { scoreMetrics } from '../../lib/scores';
 
 interface Props {
-  piece: (typeof results)[number];
+  piece: Piece;
+  score: VaultDetail['scores'];
 }
-const { piece } = Astro.props;
-const score = piece.score;
+const { piece, score } = Astro.props;
+const values = pieceValues(piece);
 const parts: Record<string, [string, number | null | undefined][]> = {
   complexity: [
     ['Music', score?.musicComplexity],
@@ -34,9 +36,9 @@ const usd = (value: number | null | undefined) =>
   <div class="tiles">
     {
       scoreMetrics.map(({ key, label }) => {
-        const value = piece.values[key];
-        const field = results
-          .map((entry) => entry.values[key])
+        const value = values[key];
+        const field = Astro.locals.vault.pieces
+          .map((entry) => entry.scores[key])
           .filter((entry): entry is number => entry != null);
         const min = Math.min(...field);
         const max = Math.max(...field);

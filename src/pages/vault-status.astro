@@ -1,0 +1,55 @@
+---
+import Layout from '../layouts/Layout.astro';
+import SiteHeader from '../components/SiteHeader.astro';
+import Button from '../components/Button.astro';
+
+const unavailable = Astro.locals.vaultProblem === 'unavailable';
+Astro.response.status = unavailable ? 503 : 404;
+if (unavailable) Astro.response.headers.set('Retry-After', '15');
+---
+
+<Layout title={unavailable ? 'Vault unavailable · Bach Bench' : 'Piece unavailable · Bach Bench'}>
+  <SiteHeader />
+  <main class="missing" data-retry-vault={unavailable || undefined}>
+    <h1>{unavailable ? 'The Vault is temporarily unavailable.' : 'This Piece is unavailable.'}</h1>
+    <div class="actions">
+      <Button variant="solid" href="/listen" icon="play">Listen</Button>
+      <Button href="/gallery">Gallery</Button>
+    </div>
+  </main>
+</Layout>
+
+<script>
+  async function retry() {
+    try {
+      const response = await fetch(location.href, { method: 'HEAD', cache: 'no-store' });
+      if (response.ok || response.status === 404) {
+        location.reload();
+        return;
+      }
+    } catch {
+      // Keep the message visible while offline.
+    }
+    setTimeout(retry, 15_000);
+  }
+  if (document.querySelector('[data-retry-vault]')) setTimeout(retry, 15_000);
+</script>
+
+<style>
+  .missing {
+    max-width: 800px;
+    margin: 0 auto;
+    padding: clamp(48px, 12vw, 140px) var(--gutter) 96px;
+  }
+  h1 {
+    font-size: clamp(32px, 5vw, 48px);
+    font-weight: 600;
+    line-height: 1.05;
+    letter-spacing: -0.045em;
+  }
+  .actions {
+    display: flex;
+    gap: 8px;
+    margin-top: 28px;
+  }
+</style>

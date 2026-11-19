@@ -3,7 +3,7 @@ import Icon from '../Icon.astro';
 import { pieceAddress } from '../../lib/share';
 
 interface Props {
-  piece: { slug: string; title: string; clip: string };
+  piece: { slug: string; title: string; clipUrl: string };
   size?: 'sm';
 }
 
@@ -14,7 +14,7 @@ const { piece, size } = Astro.props;
   <a
     class="act"
     data-save-clip
-    href={piece.clip}
+    href={piece.clipUrl}
     download={`bach-bench-${piece.slug}.mp4`}
     aria-label={`Download ${piece.title}`}><Icon name="download" />Download</a
   >
@@ -39,13 +39,6 @@ const { piece, size } = Astro.props;
   for (const link of document.querySelectorAll<HTMLAnchorElement>(
     '[data-save-clip]',
   )) {
-    if (
-      !navigator.canShare?.({
-        files: [new File([''], link.download, { type: 'video/mp4' })],
-      })
-    )
-      continue;
-
     let saving = false;
     link.addEventListener('click', async (event) => {
       if (event.metaKey || event.ctrlKey || event.shiftKey || event.altKey)
@@ -53,25 +46,33 @@ const { piece, size } = Astro.props;
       event.preventDefault();
       if (saving) return;
       saving = true;
+      const status = link.parentElement!.querySelector('[role="status"]')!;
+      status.textContent = '';
 
-      let file: File | undefined;
       try {
         const response = await fetch(link.href);
         if (!response.ok) throw new Error('Clip unavailable');
-        file = new File([await response.blob()], link.download, {
+        const file = new File([await response.blob()], link.download, {
           type: 'video/mp4',
         });
-        await navigator.share({ files: [file] });
-      } catch (error) {
-        if (!(error instanceof DOMException && error.name === 'AbortError')) {
-          const download = link.cloneNode() as HTMLAnchorElement;
-          if (file) download.href = URL.createObjectURL(file);
-          document.body.append(download);
-          download.click();
-          download.remove();
-          if (file)
-            setTimeout(() => URL.revokeObjectURL(download.href), 30_000);
+        if (navigator.canShare?.({ files: [file] })) {
+          try {
+            await navigator.share({ files: [file] });
+            return;
+          } catch (error) {
+            if (error instanceof DOMException && error.name === 'AbortError') return;
+          }
         }
+        const url = URL.createObjectURL(file);
+        const download = document.createElement('a');
+        download.href = url;
+        download.download = link.download;
+        document.body.append(download);
+        download.click();
+        download.remove();
+        setTimeout(() => URL.revokeObjectURL(url), 30_000);
+      } catch {
+        status.textContent = 'Could not download Clip';
       } finally {
         saving = false;
       }

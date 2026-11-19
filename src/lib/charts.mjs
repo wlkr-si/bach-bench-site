@@ -1,3 +1,6 @@
+import { readDetail } from './vault';
+import { provenance } from './results';
+
 'use strict';
 /* =====================================================================
    BACH BENCH CHART SYSTEM — prototype
@@ -1035,7 +1038,36 @@ window.__bach = { exportDataURL: async (key, fmt) => (await exportCanvas(views.f
   cssTokens();
   await Promise.all(['500 11px Geist', '600 15px Geist', 'italic 400 12px Geist', '400 10px "Geist Mono"', '500 10px "Geist Mono"'].map(f => document.fonts.load(f)));
   const raw = JSON.parse(document.getElementById('bach-data').textContent);
-  field = prepare(raw);
+  const unavailable = document.getElementById('chart-unavailable');
+  const detailById = new Map();
+  while (detailById.size < raw.pieces.length) {
+    // Fetch independently of the Worker and keep each successful read on retry.
+    const pending = raw.pieces.filter(({ id }) => !detailById.has(id));
+    for (let i = 0; i < pending.length; i += 8) {
+      await Promise.allSettled(pending.slice(i, i + 8).map(async ({ id, detailUrl }) => {
+        const { scores, measurements } = await readDetail({ slug: id, detailUrl }, raw.revision);
+        detailById.set(id, {
+          releaseDate: scores.releaseDate,
+          thinkingTokens: scores.thinkingTokens,
+          outputTokens: scores.outputTokens,
+          linesOfCode: scores.linesOfCode,
+          musicComplexity: scores.musicComplexity,
+          pictureComplexity: scores.pictureComplexity,
+          syncEvent: scores.syncMeasures.event.score,
+          syncCont: scores.syncMeasures.continuous.score,
+          lagMs: scores.syncMeasures.lagMs,
+        });
+        const note = document.querySelector(`[data-wall-source="${CSS.escape(id)}"]`);
+        if (note) note.textContent = provenance(measurements.wallSeconds);
+      }));
+    }
+    if (detailById.size < raw.pieces.length) {
+      unavailable.hidden = false;
+      await new Promise(resolve => setTimeout(resolve, 15_000));
+    }
+  }
+  unavailable.hidden = true;
+  field = prepare({ ...raw, pieces: raw.pieces.map(p => ({ ...p, ...detailById.get(p.id) })) });
   readHash();
   toolbar.mount();
   const root = document.getElementById('charts'), home = root.dataset.set === 'home';

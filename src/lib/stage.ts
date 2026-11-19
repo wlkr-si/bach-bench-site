@@ -72,6 +72,7 @@ for (const [
   { section, title, video, surface, toggle, progress },
 ] of slides.entries()) {
   const poster = new Image();
+  poster.crossOrigin = 'anonymous';
   poster.onload = () => {
     const canvas = document.createElement('canvas');
     canvas.width = 32;

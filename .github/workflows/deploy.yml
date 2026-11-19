@@ -33,7 +33,7 @@ jobs:
             *) echo 'PREVIEW_URL must target the Site preview on workers.dev.' >&2; exit 1 ;;
           esac
           npm run check
-          printf '{"commit":"%s"}\n' "$GITHUB_SHA" > dist/build-info.json
+          printf '{"commit":"%s"}\n' "$GITHUB_SHA" > dist/client/build-info.json
       - name: Confirm this revision is still on main
         id: revision
         env:
@@ -45,7 +45,7 @@ jobs:
           else
             echo "Skipping superseded revision $GITHUB_SHA."
           fi
-      - name: Deploy static assets
+      - name: Deploy preview Worker
         if: steps.revision.outputs.current == 'true'
         env:
           CLOUDFLARE_ACCOUNT_ID: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
@@ -54,7 +54,7 @@ jobs:
         run: |
           : "${CLOUDFLARE_ACCOUNT_ID:?Missing Cloudflare account ID}"
           : "${CLOUDFLARE_API_TOKEN:?Missing single-Worker deploy token}"
-          npm exec --offline -- wrangler deploy --config wrangler.jsonc
+          npm exec --offline -- wrangler deploy
       - name: Verify the deployed commit
         if: steps.revision.outputs.current == 'true'
         env:

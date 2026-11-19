@@ -3,9 +3,9 @@ import Layout from '../layouts/Layout.astro';
 import SiteHeader from '../components/SiteHeader.astro';
 import ResultsCharts from '../components/ResultsCharts.astro';
 import GalleryGrid from '../components/gallery/GalleryGrid.astro';
-import { pieces } from '../lib/pieces';
 import Button from '../components/Button.astro';
 
+const { pieces } = Astro.locals.vault;
 const models = new Set(pieces.map((piece) => piece.model)).size;
 ---
 
