@@ -3,11 +3,13 @@ export function vaultMediaAllowsCors(origin: string) {
     origin === 'https://bach-bench-site.walkerworlddiscord.workers.dev';
 }
 
+export const fastClipDownlink = 5;
+
 export function canStreamClip() {
   const connection = (navigator as Navigator & {
     connection?: { downlink: number; saveData?: boolean };
   }).connection;
-  return connection && !connection.saveData && connection.downlink >= 5;
+  return connection && !connection.saveData && connection.downlink >= fastClipDownlink;
 }
 
 export async function downloadClip(url: string, signal: AbortSignal) {

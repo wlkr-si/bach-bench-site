@@ -26,6 +26,7 @@ const count = (number: number) => String(number).padStart(2, '0');
         height="1350"
         alt=""
       />
+      {first && <video preload="auto" playsinline aria-hidden="true" data-clip={piece.clipUrl} />}
       <button
         class="st-toggle"
         type="button"
