@@ -1,100 +1,33 @@
 ---
-import ClipActions from './clip/ClipActions.astro';
-import Icon from './Icon.astro';
+import { vaultMediaAllowsCors } from '../lib/clip-buffer';
 import SiteHeader from './SiteHeader.astro';
+import StageSlide from './StageSlide.astro';
+import { pieceAddress } from '../lib/share';
 
 const { initial = 0 } = Astro.props;
 const { pieces } = Astro.locals.vault;
-const near = (index: number) => Math.abs(index - initial) <= 1;
-const count = (number: number) => String(number).padStart(2, '0');
+const first = pieces[initial];
+const total = pieces.length;
+const cors = vaultMediaAllowsCors(Astro.url.origin);
+const placeholder = { slug: '', title: '', modelName: '', clipUrl: '', posterUrl: '' };
+const slides = pieces.map(({ title, modelName, slug, clipUrl, posterUrl }) => ({
+  title, modelName, slug, clipUrl, posterUrl, address: pieceAddress(slug),
+}));
 ---
 
 <div class="st-layout">
   <SiteHeader current="stage" />
-  <main class="st" data-stage data-initial={initial}>
-    {pieces.length === 0 && <p class="st-empty">No Pieces available.</p>}
-    {
-      pieces.map((piece, index) => (
-        <section class="st-slide" aria-label={piece.title}>
-          <div class="st-frame">
-            <div class="st-media">
-              <video
-                src={piece.clipUrl}
-                poster={near(index) ? piece.posterUrl : undefined}
-                data-poster={piece.posterUrl}
-                preload={index === initial ? 'metadata' : 'none'}
-                playsinline
-                aria-hidden="true"
-              />
-              <button
-                class="st-toggle"
-                type="button"
-                tabindex="-1"
-                aria-hidden="true"></button>
-            </div>
-            <div class="st-prog" aria-hidden="true">
-              <i />
-            </div>
-          </div>
-          <div class="st-details">
-            <div class:list={['st-meta', { enter: index === initial }]}>
-              <p class="st-model">{piece.modelName}</p>
-              <h2 class="st-title">{piece.title}</h2>
-            </div>
-            <div class="st-controls">
-              <div class="st-actions">
-                <button
-                  class="st-play"
-                  type="button"
-                  data-play
-                  aria-label={`Play ${piece.title}`}
-                >
-                  <span class="st-icon st-icon--play"><Icon name="play" /></span>
-                  <span class="st-icon st-icon--pause"><Icon name="pause" /></span>
-                  <span class="st-icon st-icon--wait" aria-hidden="true"></span>
-                  <span class="st-word st-word--play">Play</span>
-                  <span class="st-word st-word--pause">Pause</span>
-                  <span class="st-word st-word--wait">Loading</span>
-                  <span class="st-word st-word--blocked">Tap to play</span>
-                </button>
-              </div>
-              <div class="st-dock">
-                <span class="st-count">
-                  {count(index + 1)} / {count(pieces.length)}
-                </span>
-                {pieces.length > 1 && (
-                  <nav class="st-nav" aria-label="Pieces">
-                    <button
-                      class="icon-button"
-                      type="button"
-                      data-step="-1"
-                      aria-label="Previous Piece"
-                      disabled={index === 0}
-                    >
-                      <Icon name="up" />
-                    </button>
-                    <button
-                      class="icon-button"
-                      type="button"
-                      data-step="1"
-                      aria-label="Next Piece"
-                      disabled={index === pieces.length - 1}
-                    >
-                      <Icon name="down" />
-                    </button>
-                  </nav>
-                )}
-              </div>
-            </div>
-            <div class="st-more">
-              <ClipActions piece={piece} />
-            </div>
-          </div>
-        </section>
-      ))
-    }
+  <main class="st" data-stage data-initial={initial} data-cors={cors ? 'true' : undefined}>
+    {first ? <StageSlide piece={first} index={initial} total={total} cors={cors} first /> :
+      <p class="st-empty">No Pieces available.</p>}
   </main>
 </div>
+{first && <>
+  <template id="stage-slide">
+    <StageSlide piece={placeholder} index={-1} total={total} cors={cors} />
+  </template>
+  <script is:inline type="application/json" id="stage-catalogue" set:html={JSON.stringify(slides).replace(/</g, '\\u003c')} />
+</>}
 <script>
   import '../lib/stage';
 </script>

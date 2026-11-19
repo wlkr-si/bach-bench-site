@@ -4,7 +4,7 @@ import '@fontsource-variable/geist-mono';
 import '../styles/global.css';
 import { publicAddress } from '../lib/share';
 
-const { title = 'Bach Bench', shareChart, poster = Astro.locals.vault?.pieces[0]?.posterUrl } = Astro.props;
+const { stagePoster, title = 'Bach Bench', shareChart, poster = Astro.locals.vault?.pieces[0]?.posterUrl } = Astro.props;
 const address = publicAddress(Astro.url.pathname);
 const shareAddress = new URL(address);
 if (shareChart) shareAddress.searchParams.set('chart', shareChart);
@@ -20,6 +20,7 @@ const image = poster && publicAddress(poster);
       content="width=device-width, initial-scale=1, viewport-fit=cover"
     />
     <meta name="color-scheme" content="dark" />
+    {stagePoster && <link rel="preconnect" href={new URL(stagePoster).origin} crossorigin="anonymous" />}
     <meta name="theme-color" content="#010101" />
     <link rel="icon" href="/favicon.svg" type="image/svg+xml" />
     <link rel="icon" href="/favicon.ico" sizes="32x32" />

@@ -8,7 +8,7 @@ const stagingCookie = 'bach-staging';
 export const onRequest = defineMiddleware(async (context, next) => {
   const path = context.url.pathname.replace(/\/$/, '') || '/';
   const pieceRoute = path.match(/^\/p\/([^/]+)(\/analytics)?$/);
-  if (!pieceRoute && !['/', '/listen', '/gallery', '/analysis'].includes(path)) return next();
+  if (!pieceRoute && !['/', '/listen', '/gallery', '/gallery/more', '/analysis'].includes(path)) return next();
 
   const { url, cookies, locals } = context;
   let staging = false;

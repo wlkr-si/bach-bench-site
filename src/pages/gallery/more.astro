@@ -1,0 +1,10 @@
+---
+import GalleryTile from '../../components/gallery/GalleryTile.astro';
+
+export const partial = true;
+const { pieces, revision } = Astro.locals.vault;
+const replace = Astro.url.searchParams.get('revision') !== revision;
+if (replace) Astro.response.headers.set('X-Gallery-Replace', '1');
+---
+
+{pieces.slice(replace ? 0 : 4).map((piece) => <GalleryTile piece={piece} eager={false} />)}

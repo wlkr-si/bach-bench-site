@@ -9,6 +9,6 @@ const shareImage = (await Astro.locals.shareImage)?.(pieceImagePath(piece.slug))
 const initial = Astro.locals.vault.pieces.indexOf(piece);
 ---
 
-<Layout title={`${piece.title} · ${piece.modelName}`} poster={shareImage ?? piece.posterUrl}>
+<Layout stagePoster={piece.posterUrl} title={`${piece.title} · ${piece.modelName}`} poster={shareImage ?? piece.posterUrl}>
   <Stage initial={initial} />
 </Layout>
