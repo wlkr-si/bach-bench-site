@@ -8,6 +8,7 @@ on:
       - .github/workflows/share-images.yml
       - scripts/share-images.mjs
       - package-lock.json
+      - astro.config.mjs
       - src/lib/image-paths.mjs
       - src/lib/sleeve.mjs
       - src/lib/charts.mjs
@@ -39,7 +40,7 @@ jobs:
     runs-on: ubuntu-latest
     timeout-minutes: 15
     env:
-      SHARE_IMAGE_WORK: ${{ runner.temp }}/bach-share-images
+      SHARE_IMAGE_WORK: /tmp/bach-share-images
     steps:
       - uses: actions/checkout@d23441a48e516b6c34aea4fa41551a30e30af803 # v6
         with:
