@@ -2,10 +2,15 @@ name: Publish share images
 on:
   schedule:
     - cron: '4-59/10 * * * *'
+  workflow_dispatch:
+    inputs:
+      trigger:
+        description: Source of the refresh
+        required: true
+        type: string
   push:
     branches: [main]
     paths:
-      - .github/workflows/share-images.yml
       - scripts/share-images.mjs
       - package-lock.json
       - astro.config.mjs
@@ -35,7 +40,13 @@ concurrency:
 
 jobs:
   publish:
-    if: github.ref == 'refs/heads/main' && (github.event_name == 'push' || github.event_name == 'schedule')
+    if: >-
+      github.ref == 'refs/heads/main' &&
+      (github.event_name == 'push' || github.event_name == 'schedule' ||
+       (github.event_name == 'workflow_dispatch' &&
+        github.actor == 'bach-bench-share-image-clock[bot]' &&
+        github.triggering_actor == 'bach-bench-share-image-clock[bot]' &&
+        inputs.trigger == 'vault-clock'))
     environment: share-images-main
     runs-on: ubuntu-latest
     timeout-minutes: 15

@@ -30,7 +30,9 @@ See [LICENSE](LICENSE) and the [third-party and brand notices](public/THIRD_PART
 
 The Site job checks both the live index and the optional
 `staging/site-98/index.json` fixture index every ten minutes. A merge touching
-the drawing inputs also starts it. If either the index revision or the
+the drawing inputs also starts it. The [0o10 clock](ops/share-image-clock)
+checks those same indexes independently and starts the main workflow when
+a publication is behind, using a Site-only GitHub App. If either the index revision or the
 drawing fingerprint changes, it renders that field's cards and chart PNGs
 using the Site's existing drawing code. The job runs from main and publishes
 under `derived/images/live/` or `derived/images/staging/site-98/` only.

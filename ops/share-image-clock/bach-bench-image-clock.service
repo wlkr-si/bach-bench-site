@@ -1,0 +1,10 @@
+[Unit]
+Description=Check Bach Vault and dispatch the Site share image job
+
+[Service]
+Type=oneshot
+EnvironmentFile=%h/.config/bach-bench-image-clock/app.env
+LoadCredential=github-app.pem:%h/.config/bach-bench-image-clock/github-app.pem
+ExecStart=/usr/bin/python3 %h/.local/lib/bach-bench-image-clock/share-image-clock.py
+NoNewPrivileges=true
+TimeoutStartSec=120
