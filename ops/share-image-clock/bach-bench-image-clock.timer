@@ -1,0 +1,9 @@
+[Unit]
+Description=Check for stale Bach Bench share images every ten minutes
+
+[Timer]
+OnCalendar=*-*-* *:02/10:00
+Persistent=true
+
+[Install]
+WantedBy=timers.target
