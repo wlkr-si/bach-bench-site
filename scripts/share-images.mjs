@@ -154,6 +154,7 @@ async function publish(targets) {
 
   for (const { source, revision } of targets) {
     const { root, index } = imageSources[source];
+    if (!root.startsWith('/derived/images/')) throw new Error('Invalid derived image root');
     const current = await vaultResponse(index);
     if (!current.ok || (await current.json()).revision !== revision) {
       console.log(`${source}: index moved; leaving publication for the next poll`);

@@ -6,7 +6,7 @@ export async function readShareImages(source: keyof typeof imageSources, revisio
   const root = vaultOrigin + imageSources[source].root;
   try {
     const response = await fetch(root + '/manifest.json', {
-      redirect: 'error', signal: AbortSignal.timeout(1_000),
+      redirect: 'manual', signal: AbortSignal.timeout(1_000),
     });
     if (!response.ok) return;
     const manifest = await response.json();
