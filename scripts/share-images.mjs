@@ -58,10 +58,13 @@ async function plan() {
 
 async function render(targets) {
   process.env.ASTRO_TELEMETRY_DISABLED = '1';
-  const { dev } = await import('astro');
+  const { build, preview } = await import('astro');
   const { chromium } = await import('playwright');
-  const server = await dev({ server: { host: 'localhost', port: 0 } });
-  const address = `http://localhost:${server.address.port}`;
+  const config = { server: { host: 'localhost', port: 0 } };
+  process.env.PUBLIC_SHARE_IMAGE_RENDER = '1';
+  await build(config);
+  const server = await preview(config);
+  const address = `http://localhost:${server.server.address().port}`;
   try {
     const browser = await chromium.launch({ executablePath: process.env.BACH_CHROME });
     try {

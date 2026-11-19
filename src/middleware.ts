@@ -26,7 +26,7 @@ export const onRequest = defineMiddleware(async (context, next) => {
     }
   }
 
-  const imageRender = import.meta.env.DEV && url.hostname === 'localhost'
+  const imageRender = import.meta.env.PUBLIC_SHARE_IMAGE_RENDER === '1' && url.hostname === 'localhost'
     ? url.searchParams.get('image-render')
     : null;
   const imageStaging = imageRender === 'staging' ||
