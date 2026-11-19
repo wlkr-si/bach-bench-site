@@ -1,0 +1,147 @@
+---
+import BackLink from '../../../components/BackLink.astro';
+import Button from '../../../components/Button.astro';
+import Layout from '../../../layouts/Layout.astro';
+import SiteHeader from '../../../components/SiteHeader.astro';
+import FieldScores from '../../../components/analytics/FieldScores.astro';
+import Score from '../../../components/analytics/Score.astro';
+import { results, metrics, format, provenance } from '../../../lib/results';
+import '../../../styles/analytics.css';
+
+export function getStaticPaths() {
+  return results.map((piece) => ({
+    params: { slug: piece.slug },
+    props: { piece },
+  }));
+}
+
+const { piece } = Astro.props;
+const base = '/analytics/' + piece.slug;
+const headline: (typeof metrics)[number][] = [
+  metrics[0],
+  metrics[1],
+  metrics[5],
+];
+const runFields = [
+  ['Tool', 'tool'],
+  ['Tool version', 'toolVersion'],
+  ['Reported model', 'reportedModelId'],
+  ['Tool duration (s)', 'toolReportedDurationSeconds'],
+  ['Input tokens', 'inputTokens'],
+  ['Output tokens', 'outputTokens'],
+  ['Reasoning tokens', 'reasoningTokens'],
+  ['Cached read tokens', 'cachedReadTokens'],
+  ['Cached write tokens', 'cachedWriteTokens'],
+  ['Reported cost (USD)', 'reportedCostUsd'],
+];
+---
+
+<Layout
+  title={`${piece.title} · ${piece.modelName} · Bach Bench`}
+  poster={base + '/card.png'}
+>
+  <SiteHeader />
+  <main class="measurements">
+    <div class="toolbar">
+      <BackLink href={`/p/${piece.slug}`}>{piece.title}</BackLink>
+      <Button
+        variant="solid"
+        icon="download"
+        href={base + '/card.png'}
+        download={`bach-bench-${piece.slug}.png`}>Save card</Button
+      >
+    </div>
+    <h1 class="sr-only">{piece.title} · {piece.modelName}</h1>
+    <img
+      class="sleeve"
+      src={base + '/card.png'}
+      width="1080"
+      height="1350"
+      alt={`Sound waveform and measured figures for ${piece.title} by ${piece.modelName}`}
+    />
+    <FieldScores piece={piece} />
+    <Score />
+    <dl class="tiles tiles--figures">
+      {
+        headline.map(({ key, label, unit }) => (
+          <div class="tile">
+            <dt class="tile-label">{label}</dt>
+            <dd class="tile-value">
+              {format(piece.values[key])}
+              {piece.values[key] != null && unit && <small>{unit}</small>}
+              {key === 'wall' && provenance(piece.run.wallSeconds) && (
+                <small class="tile-note">
+                  {provenance(piece.run.wallSeconds)}
+                </small>
+              )}
+            </dd>
+          </div>
+        ))
+      }
+    </dl>
+    <section>
+      <h2>Measurements</h2>
+      {
+        piece.run.route?.value === 'Pasted by hand' && (
+          <dl class="credits">
+            <div>
+              <dt>Route</dt>
+              <dd>
+                Pasted by hand from {piece.run.chatSource?.value}. The chat page
+                or app supplied its own hidden instructions.
+              </dd>
+            </div>
+          </dl>
+        )
+      }
+      <dl class="credits">
+        {
+          metrics
+            .filter((metric) => !headline.includes(metric))
+            .map(({ key, label, unit }) => (
+              <div>
+                <>
+                  <dt>{label}</dt>
+                  <dd class:list={[{ dash: piece.values[key] == null }]}>
+                    {format(piece.values[key])}
+                    {piece.values[key] != null && unit && ' ' + unit}
+                  </dd>
+                </>
+              </div>
+            ))
+        }
+        <div>
+          <dt>Drawing</dt><dd>
+            {piece.analysis?.drawingMethods?.join(', ') || '—'}
+          </dd>
+        </div>
+        <div>
+          <dt>Audio nodes</dt><dd>
+            {
+              Object.entries(piece.analysis?.audioNodeCallSites ?? {})
+                .map(([name, count]) => `${name} × ${count}`)
+                .join(', ') || '—'
+            }
+          </dd>
+        </div>
+        {
+          runFields.map(([label, key]) => (
+            <div>
+              <>
+                <dt>{label}</dt>
+                <dd class:list={[{ dash: piece.run[key]?.value == null }]}>
+                  {format(piece.run[key]?.value)}
+                  {provenance(piece.run[key])}
+                </dd>
+              </>
+            </div>
+          ))
+        }
+      </dl>
+    </section>
+    <footer>
+      <a href={base + '/piece.js.txt'}>Module source</a>
+      <a href={base + '/reply.txt'}>Full reply</a>
+    </footer>
+  </main>
+</Layout>

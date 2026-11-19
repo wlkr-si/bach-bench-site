@@ -1,0 +1,269 @@
+---
+import ClipActions from '../clip/ClipActions.astro';
+import Icon from '../Icon.astro';
+
+interface Props {
+  piece: {
+    slug: string;
+    title: string;
+    modelName: string;
+    poster: string;
+    clip: string;
+  };
+  eager: boolean;
+}
+
+const { piece, eager } = Astro.props;
+---
+
+<li data-tile data-clip={piece.clip}>
+  <a href={`/p/${piece.slug}`}>
+    <span class="poster">
+      <img
+        src={piece.poster}
+        alt=""
+        width="1080"
+        height="1350"
+        loading={eager ? 'eager' : 'lazy'}
+        decoding="async"
+      />
+    </span>
+    <span class="progress" aria-hidden="true"><i></i></span>
+    <h2>{piece.title}</h2>
+    <p>{piece.modelName}</p>
+  </a>
+  <div class="layer">
+    <button
+      class="icon-button icon-button--sm play"
+      type="button"
+      data-play
+      aria-label={`Play ${piece.title}`}
+      ><span class="play-icon"><Icon name="play" /></span><span
+        class="pause-icon"><Icon name="pause" /></span><span
+        class="wait-icon"></span></button
+    >
+  </div>
+  <div class="tile-actions"><ClipActions piece={piece} size="sm" /></div>
+</li>
+
+<style>
+  li {
+    position: relative;
+    min-width: 0;
+  }
+  a {
+    display: block;
+    border-radius: var(--radius);
+    overflow-wrap: anywhere;
+  }
+  a:focus-visible {
+    outline-offset: 4px;
+  }
+  .poster {
+    position: relative;
+    display: block;
+    aspect-ratio: 4 / 5;
+    background: var(--raised);
+  }
+  img {
+    display: block;
+    width: 100%;
+    height: 100%;
+    object-fit: contain;
+  }
+  /* Sits exactly over the poster; only the button takes clicks, so the
+     rest of the tile still opens the Piece. */
+  .layer {
+    position: absolute;
+    top: 0;
+    left: 0;
+    right: 0;
+    aspect-ratio: 4 / 5;
+    pointer-events: none;
+  }
+  .layer :global(video) {
+    position: absolute;
+    inset: 0;
+    width: 100%;
+    height: 100%;
+    object-fit: contain;
+    opacity: 0;
+  }
+  li[data-state] .layer :global(video) {
+    opacity: 1;
+  }
+  .progress {
+    display: block;
+    height: 2px;
+    background: rgb(255 255 255 / 12%);
+    opacity: 0;
+  }
+  li[data-state] .progress {
+    opacity: 1;
+  }
+  .progress i {
+    display: block;
+    height: 100%;
+    background: var(--brand);
+    transform-origin: left center;
+    transform: scaleX(0);
+  }
+  /* Sits just below the poster, beside the title, so nothing covers the visual. */
+  .play {
+    position: absolute;
+    z-index: 1;
+    top: calc(100% + 12px);
+    right: 0;
+    pointer-events: auto;
+  }
+  .play span {
+    display: flex;
+  }
+  .play-icon {
+    margin-left: 1px;
+  }
+  .play-icon :global(path) {
+    fill: currentColor;
+  }
+  .wait-icon {
+    width: 12px;
+    height: 12px;
+    border: 1.5px solid rgb(255 255 255 / 25%);
+    border-top-color: currentColor;
+    border-radius: 999px;
+    animation: tile-spin 800ms linear infinite;
+  }
+  @keyframes tile-spin {
+    to {
+      transform: rotate(360deg);
+    }
+  }
+  li[data-state='playing'] .play-icon,
+  li[data-state='loading'] .play-icon,
+  li:not([data-state='playing']) .pause-icon,
+  li:not([data-state='loading']) .wait-icon {
+    display: none;
+  }
+
+  h2,
+  p {
+    padding-right: 40px;
+  }
+  h2 {
+    margin-top: 12px;
+    font-size: 14px;
+    font-weight: 500;
+    line-height: 20px;
+    letter-spacing: -0.006em;
+  }
+  p {
+    font-size: 13px;
+    line-height: 20px;
+    color: var(--muted);
+  }
+  .tile-actions {
+    display: none;
+    margin-top: 6px;
+  }
+  @media (hover: hover) and (pointer: fine) {
+    .tile-actions {
+      display: block;
+      visibility: hidden;
+    }
+    li:hover .tile-actions,
+    li:focus-within .tile-actions {
+      visibility: visible;
+    }
+  }
+</style>
+
+<script>
+  // One tile plays at a time. Clips load only when a tile is first played.
+  type Tile = {
+    tile: HTMLElement;
+    button: HTMLButtonElement;
+    bar: HTMLElement;
+    title: string;
+    video?: HTMLVideoElement;
+  };
+  const tiles: Tile[] = [
+    ...document.querySelectorAll<HTMLElement>('[data-tile]'),
+  ].map((tile) => ({
+    tile,
+    button: tile.querySelector<HTMLButtonElement>('[data-play]')!,
+    bar: tile.querySelector<HTMLElement>('.progress i')!,
+    title: tile.querySelector('h2')!.textContent!,
+  }));
+  let active: Tile | undefined;
+
+  function label(entry: Tile, playing: boolean) {
+    entry.button.setAttribute(
+      'aria-label',
+      `${playing ? 'Pause' : 'Play'} ${entry.title}`,
+    );
+  }
+
+  function reset(entry: Tile) {
+    const { video, tile, bar } = entry;
+    if (video) {
+      video.pause();
+      video.currentTime = 0;
+    }
+    delete tile.dataset.state;
+    bar.style.transform = 'scaleX(0)';
+    label(entry, false);
+    if (active === entry) active = undefined;
+  }
+
+  function videoFor(entry: Tile) {
+    if (entry.video) return entry.video;
+    const video = document.createElement('video');
+    video.playsInline = true;
+    video.preload = 'auto';
+    video.setAttribute('aria-hidden', 'true');
+    video.poster = entry.tile.querySelector('img')!.currentSrc;
+    video.src = entry.tile.dataset.clip!;
+    video.addEventListener('timeupdate', () => {
+      entry.bar.style.transform = `scaleX(${video.duration ? video.currentTime / video.duration : 0})`;
+    });
+    video.addEventListener('playing', () => {
+      entry.tile.dataset.state = 'playing';
+      label(entry, true);
+    });
+    video.addEventListener('waiting', () => {
+      if (!video.paused) entry.tile.dataset.state = 'loading';
+    });
+    video.addEventListener('pause', () => {
+      if (video.ended || !entry.tile.dataset.state) return;
+      entry.tile.dataset.state = 'paused';
+      label(entry, false);
+    });
+    video.addEventListener('ended', () => reset(entry));
+    entry.tile.querySelector('.layer')!.prepend(video);
+    entry.video = video;
+    return video;
+  }
+
+  for (const entry of tiles) {
+    entry.button.addEventListener('click', () => {
+      const video = videoFor(entry);
+      if (active === entry && !video.paused) {
+        video.pause();
+        return;
+      }
+      if (active && active !== entry) reset(active);
+      active = entry;
+      entry.tile.dataset.state = video.readyState < 3 ? 'loading' : 'playing';
+      label(entry, true);
+      void video.play().catch(() => reset(entry));
+    });
+  }
+
+  const stopAll = () => {
+    if (active) reset(active);
+  };
+  addEventListener('pagehide', stopAll);
+  document.addEventListener('visibilitychange', () => {
+    if (document.hidden) active?.video?.pause();
+  });
+</script>

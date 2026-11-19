@@ -1,0 +1,221 @@
+---
+type Derived = {
+  env: number[];
+  notes: [number, number][];
+  heat: string[];
+  colors: [number, string][];
+};
+const { derived } = Astro.props as { derived: Derived | undefined };
+
+// Pitch lane: x is one of 120 analysis windows, y is semitones down from C8.
+const lo = 28,
+  hi = 100,
+  windows = 120;
+const pitchRows = hi - lo + 1;
+const pct = (n: number) => `${+n.toFixed(3)}%`;
+const pitchY = (m: number) => pct(((hi - m + 0.5) / pitchRows) * 100);
+const octaves: number[] = [];
+for (let m = Math.ceil(lo / 12) * 12; m <= hi; m += 12) octaves.push(m);
+
+function pitchLane(p: Derived, silent: boolean) {
+  const heat = p.heat
+    .map((column, x) =>
+      [...column]
+        .map((cell, y) => {
+          const intensity = parseInt(cell, 16);
+          return intensity > 1
+            ? `<rect x="${x}" y="${hi - (y + lo)}" width="1.04" height="1.04" fill="#27df84" fill-opacity="${(intensity / 17).toFixed(2)}"/>`
+            : '';
+        })
+        .join(''),
+    )
+    .join('');
+  const grid = octaves
+    .map(
+      (m) =>
+        `<line x1="0" x2="${windows}" y1="${hi - m + 0.5}" y2="${hi - m + 0.5}" class="grid"/>`,
+    )
+    .join('');
+  const notes = (p.notes || [])
+    .map(
+      ([wi, m]) =>
+        `<rect x="${wi + 0.1}" y="${hi - m + 0.1}" width="0.8" height="0.8" fill="#dcffe9"/>`,
+    )
+    .join('');
+  return `<svg viewBox="0 -0.5 ${windows} ${pitchRows}" preserveAspectRatio="none" shape-rendering="crispEdges">${heat}${grid}${silent ? '' : `<g class="fade">${notes}</g>`}</svg>`;
+}
+
+function loudnessLane(p: Derived) {
+  const env = p.env || [];
+  const y = (d: number) => (-Math.max(-60, Math.min(0, d))).toFixed(2);
+  const line = env
+    .map((d, i) => `${i ? 'L' : 'M'}${(i + 0.5).toFixed(1)} ${y(d)}`)
+    .join('');
+  const width = env.length || 75;
+  return `<svg viewBox="0 0 ${width} 60" preserveAspectRatio="none">
+    <line x1="0" x2="${width}" y1="0" y2="0" class="grid"/>
+    <line x1="0" x2="${width}" y1="60" y2="60" class="base"/>
+    <g class="fade"><path d="${line}L${width} 60L0 60Z" class="area"/><path d="${line}" class="level"/></g>
+  </svg>`;
+}
+
+const silent = !derived || Math.max(...(derived.env || [])) <= -60;
+const seconds = [0, 3, 6, 9, 12, 15];
+---
+
+<section class="score">
+  <h2>Frequency and detected pitches</h2>
+  {
+    derived ? (
+      <div
+        class="score-chart"
+        role="img"
+        aria-label="Frequency content, approximate pitches detected from the sound, loudness in dBFS and frame colours over 15 seconds"
+      >
+        <div class="lane lane--pitch" aria-hidden="true">
+          <div class="ticks">
+            {octaves.map((m) => (
+              <span style={`top:${pitchY(m)}`}>C{m / 12 - 1}</span>
+            ))}
+          </div>
+          <div class="plot">
+            <Fragment set:html={pitchLane(derived, silent)} />
+            {silent && <span class="silent">—</span>}
+          </div>
+        </div>
+        <div class="lane lane--level" aria-hidden="true">
+          <div class="ticks">
+            <span style="top:0">0</span>
+            <span style="top:50%">dBFS</span>
+            <span style="top:100%">−60</span>
+          </div>
+          <div class="plot">
+            {!silent && <Fragment set:html={loudnessLane(derived)} />}
+          </div>
+        </div>
+        <div class="lane lane--colour" aria-hidden="true">
+          <div class="ticks" />
+          <div class="plot swatches">
+            {(derived.colors || []).map(([, colour]) => (
+              <i style={`background:${colour}`} />
+            ))}
+          </div>
+        </div>
+        <div class="lane lane--time" aria-hidden="true">
+          <div class="ticks" />
+          <div class="plot">
+            {seconds.map((t) => (
+              <span style={`left:${pct((t / 15) * 100)}`}>{t} s</span>
+            ))}
+          </div>
+        </div>
+      </div>
+    ) : (
+      <span class="dash">—</span>
+    )
+  }
+</section>
+
+<style is:global>
+  .score-chart {
+    display: grid;
+    gap: 12px;
+    font-family: var(--mono);
+    font-size: 11px;
+    line-height: 1;
+    color: var(--faint);
+    font-variant-numeric: tabular-nums;
+  }
+  .score-chart .lane {
+    display: grid;
+    grid-template-columns: 40px minmax(0, 1fr);
+  }
+  .score-chart .ticks {
+    position: relative;
+  }
+  .score-chart .ticks span {
+    position: absolute;
+    right: 10px;
+    transform: translateY(-50%);
+    white-space: nowrap;
+  }
+  .score-chart .plot {
+    position: relative;
+    min-width: 0;
+  }
+  .score-chart svg {
+    display: block;
+    width: 100%;
+    height: 100%;
+    overflow: visible;
+  }
+  .score-chart .lane--pitch .plot {
+    height: clamp(240px, 52vw, 340px);
+    border-radius: 2px;
+    overflow: hidden;
+    background: #050505;
+  }
+  .score-chart .lane--level {
+    margin-top: 12px;
+  }
+  .score-chart .lane--level .plot {
+    height: 88px;
+  }
+  .score-chart .grid,
+  .score-chart .base {
+    stroke: var(--line-strong);
+    stroke-width: 1;
+    vector-effect: non-scaling-stroke;
+    shape-rendering: crispEdges;
+  }
+  .score-chart .lane--pitch .grid {
+    stroke: rgb(255 255 255 / 14%);
+  }
+  .score-chart .lane--level .grid {
+    stroke-dasharray: 2 3;
+  }
+  .score-chart .area {
+    fill: var(--ink);
+    fill-opacity: 0.06;
+  }
+  .score-chart .level {
+    fill: none;
+    stroke: var(--ink);
+    stroke-width: 1.5;
+    stroke-linejoin: round;
+    stroke-linecap: round;
+    vector-effect: non-scaling-stroke;
+  }
+  .score-chart .swatches {
+    display: flex;
+    gap: 2px;
+    height: 16px;
+  }
+  .score-chart .swatches i {
+    flex: 1 1 0;
+    border-radius: 2px;
+    box-shadow: inset 0 0 0 1px rgb(255 255 255 / 8%);
+  }
+  .score-chart .lane--time .plot {
+    height: 12px;
+  }
+  .score-chart .lane--time span {
+    position: absolute;
+    top: 0;
+    transform: translateX(-50%);
+    white-space: nowrap;
+  }
+  .score-chart .lane--time span:first-child {
+    transform: none;
+  }
+  .score-chart .lane--time span:last-child {
+    transform: translateX(-100%);
+  }
+  .score-chart .silent {
+    position: absolute;
+    inset: 0;
+    display: grid;
+    place-items: center;
+    font-size: 13px;
+  }
+</style>

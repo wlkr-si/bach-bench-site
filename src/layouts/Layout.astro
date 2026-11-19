@@ -1,0 +1,39 @@
+---
+import '@fontsource-variable/geist';
+import '@fontsource-variable/geist-mono';
+import '../styles/global.css';
+import { pieces } from '../lib/pieces';
+import { publicAddress } from '../lib/share';
+
+const { title = 'Bach Bench', poster = pieces[0]?.poster } = Astro.props;
+const address = publicAddress(Astro.url.pathname);
+const image = poster && publicAddress(poster);
+---
+
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta
+      name="viewport"
+      content="width=device-width, initial-scale=1, viewport-fit=cover"
+    />
+    <meta name="color-scheme" content="dark" />
+    <meta name="theme-color" content="#010101" />
+    <link rel="icon" href="/favicon.svg" type="image/svg+xml" />
+    <link rel="icon" href="/favicon.ico" sizes="32x32" />
+    <link rel="apple-touch-icon" href="/apple-touch-icon.png" />
+    <link rel="manifest" href="/site.webmanifest" />
+    <title>{title}</title>
+    <link rel="canonical" href={address} />
+    <meta property="og:type" content="website" />
+    <meta property="og:site_name" content="Bach Bench" />
+    <meta property="og:url" content={address} />
+    <meta property="og:title" content={title} />
+    <meta name="twitter:card" content="summary_large_image" />
+    <meta name="twitter:title" content={title} />
+    {image && <meta property="og:image" content={image} />}
+    {image && <meta name="twitter:image" content={image} />}
+  </head>
+  <body><slot /></body>
+</html>

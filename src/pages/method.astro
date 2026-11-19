@@ -1,0 +1,62 @@
+---
+import Layout from '../layouts/Layout.astro';
+import SiteHeader from '../components/SiteHeader.astro';
+import BackLink from '../components/BackLink.astro';
+---
+
+<Layout title="Method · Bach Bench">
+  <SiteHeader />
+  <main class="method">
+    <BackLink href="/analysis">Analysis</BackLink>
+    <h1>How Bach Bench works</h1>
+    <p>Each model gets the same instruction to compose a 15-second original instrumental and a visual that moves with it.</p>
+    <p>Each published Piece is played at its recorded quality. Complexity describes the amount and variety of sound and picture. Sync measures how closely they move together. Uniqueness measures distance from the other Pieces. Listeners judge the music.</p>
+  </main>
+</Layout>
+
+<style>
+  .method {
+    max-width: 800px;
+    margin: 0 auto;
+    padding: 24px 20px 80px;
+    line-height: 1.6;
+  }
+  .method :global(h1) {
+    margin-top: 16px;
+    font-size: clamp(32px, 5vw, 44px);
+    font-weight: 600;
+    line-height: 1.05;
+    letter-spacing: -0.045em;
+    text-wrap: balance;
+  }
+  .method :global(h2) {
+    margin-top: 2.5rem;
+    font-size: 20px;
+    font-weight: 600;
+    letter-spacing: -0.03em;
+  }
+  .method :global(p) {
+    margin: 1rem 0;
+  }
+  .method :global(table) {
+    width: 100%;
+    font-size: 0.875rem;
+    overflow-wrap: anywhere;
+  }
+  .method :global(td),
+  .method :global(th) {
+    padding: 0.5rem;
+    border-bottom: 1px solid #343434;
+    text-align: left;
+  }
+  blockquote {
+    margin: 1rem 0 0;
+    padding: 0 0 0 20px;
+    color: var(--muted);
+  }
+  .method :global(a:not(.back)) {
+    text-decoration: underline;
+    text-underline-offset: 3px;
+    text-decoration-color: var(--line-strong);
+  }
+</style>

@@ -1,0 +1,152 @@
+---
+import Icon from '../Icon.astro';
+import { pieceAddress } from '../../lib/share';
+
+interface Props {
+  piece: { slug: string; title: string; clip: string };
+  size?: 'sm';
+}
+
+const { piece, size } = Astro.props;
+---
+
+<div class:list={['clip-actions', size && 'clip-actions--sm']}>
+  <a
+    class="act"
+    data-save-clip
+    href={piece.clip}
+    download={`bach-bench-${piece.slug}.mp4`}
+    aria-label={`Download ${piece.title}`}><Icon name="download" />Download</a
+  >
+  <button
+    class="act"
+    type="button"
+    data-copy-address={pieceAddress(piece.slug)}
+    aria-label={`Copy link to ${piece.title}`}
+    ><span class="copy-icon"><Icon name="link" />Copy link</span><span
+      class="copied-icon"><Icon name="check" />Copied</span
+    ></button
+  >
+  <a
+    class="act"
+    href={`/p/${piece.slug}/analytics`}
+    aria-label={`Stats for ${piece.title}`}><Icon name="analytics" />Stats</a
+  >
+  <span role="status" class="sr-only"></span>
+</div>
+
+<script>
+  for (const link of document.querySelectorAll<HTMLAnchorElement>(
+    '[data-save-clip]',
+  )) {
+    if (
+      !navigator.canShare?.({
+        files: [new File([''], link.download, { type: 'video/mp4' })],
+      })
+    )
+      continue;
+
+    let saving = false;
+    link.addEventListener('click', async (event) => {
+      if (event.metaKey || event.ctrlKey || event.shiftKey || event.altKey)
+        return;
+      event.preventDefault();
+      if (saving) return;
+      saving = true;
+
+      let file: File | undefined;
+      try {
+        const response = await fetch(link.href);
+        if (!response.ok) throw new Error('Clip unavailable');
+        file = new File([await response.blob()], link.download, {
+          type: 'video/mp4',
+        });
+        await navigator.share({ files: [file] });
+      } catch (error) {
+        if (!(error instanceof DOMException && error.name === 'AbortError')) {
+          const download = link.cloneNode() as HTMLAnchorElement;
+          if (file) download.href = URL.createObjectURL(file);
+          document.body.append(download);
+          download.click();
+          download.remove();
+          if (file)
+            setTimeout(() => URL.revokeObjectURL(download.href), 30_000);
+        }
+      } finally {
+        saving = false;
+      }
+    });
+  }
+
+  for (const button of document.querySelectorAll<HTMLButtonElement>(
+    '[data-copy-address]',
+  )) {
+    let reset: ReturnType<typeof setTimeout>;
+    button.addEventListener('click', async () => {
+      const status = button.parentElement!.querySelector('[role="status"]')!;
+      try {
+        await navigator.clipboard.writeText(button.dataset.copyAddress!);
+        button.dataset.copied = '';
+        status.textContent = 'Link copied';
+        clearTimeout(reset);
+        reset = setTimeout(() => {
+          delete button.dataset.copied;
+          status.textContent = '';
+        }, 2000);
+      } catch {
+        status.textContent = 'Could not copy link';
+      }
+    });
+  }
+</script>
+
+<style>
+  .clip-actions {
+    display: flex;
+    flex-wrap: wrap;
+    margin-left: -10px;
+  }
+  .act {
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+    height: 36px;
+    padding: 0 10px;
+    border: 0;
+    border-radius: var(--radius);
+    background: transparent;
+    font: 500 14px/1 var(--font);
+    letter-spacing: -0.006em;
+    white-space: nowrap;
+    color: var(--muted);
+    cursor: pointer;
+    transition: color 120ms ease, background-color 120ms ease;
+  }
+  .act:active {
+    transform: scale(0.97);
+  }
+  .clip-actions--sm {
+    margin-left: -8px;
+  }
+  .clip-actions--sm .act {
+    height: 28px;
+    padding: 0 8px;
+    gap: 5px;
+    font-size: 13px;
+  }
+  @media (hover: hover) and (pointer: fine) {
+    .act:hover {
+      color: var(--ink);
+      background: var(--soft);
+    }
+  }
+  button span {
+    display: inline-flex;
+    align-items: center;
+    gap: inherit;
+  }
+  button:not([data-copied]) .copied-icon,
+  button[data-copied] .copy-icon {
+    display: none;
+  }
+</style>

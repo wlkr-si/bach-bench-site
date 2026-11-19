@@ -1,0 +1,44 @@
+---
+interface Props {
+  current?: 'stage' | 'gallery' | 'analysis';
+}
+const { current } = Astro.props;
+const links = [
+  ['stage', '/listen', 'Listen'],
+  ['gallery', '/gallery', 'Gallery'],
+  ['analysis', '/analysis', 'Analysis'],
+] as const;
+---
+
+<header class="site-header">
+  <div class="site-brand">
+    <a class="site-mark" href="https://wlkr.si" aria-label="WLKR.SI"
+      ><svg
+        viewBox="-100 -100 200 200"
+        width="22"
+        height="22"
+        fill="currentColor"
+        aria-hidden="true"
+        ><g transform="rotate(-24)"
+          ><path
+            transform="translate(0 -7)"
+            d="M-87,-5 C-87,-53 -47,-92 1,-92 C49,-92 89,-53 89,-5 C89,3 83,9 75,9 C67,9 61,3 61,-5 C61,-38 34,-64 1,-64 C-32,-64 -59,-38 -59,-5 C-59,3 -65,9 -73,9 C-81,9 -87,3 -87,-5 Z"
+          ></path><path
+            transform="translate(0 8)"
+            d="M-92,24 C-94,17 -89,12 -82,12 H68 C76,12 81,18 79,25 C70,65 35,91 -7,91 C-48,91 -82,64 -92,24 Z"
+          ></path></g
+        ></svg
+      ></a
+    >
+    <a class="site-name" href="/">Bach Bench</a>
+  </div>
+  <nav class="site-nav" aria-label="Bach Bench">
+    {
+      links.map(([key, href, label]) => (
+        <a href={href} aria-current={key === current ? 'page' : undefined}>
+          {label}
+        </a>
+      ))
+    }
+  </nav>
+</header>

@@ -1,0 +1,19 @@
+---
+import { chartData } from '../lib/scores';
+import chartCode from '../lib/charts.mjs?raw';
+import fontFaces from '../styles/chart-fonts.css?raw';
+import '../styles/charts.css';
+
+const { set = 'results' } = Astro.props;
+---
+
+{set === 'results' && <div class="chart-toolbar" id="toolbar" />}
+<div class="charts" id="charts" data-set={set}></div>
+<style is:inline id="fontfaces" set:html={fontFaces}></style>
+<script
+  is:inline
+  id="bach-data"
+  type="application/json"
+  set:html={JSON.stringify(chartData).replace(/</g, '\\u003c')}
+/>
+<script is:inline id="bach-charts" set:html={chartCode} />

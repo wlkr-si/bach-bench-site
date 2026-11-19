@@ -1,0 +1,157 @@
+---
+import Layout from '../layouts/Layout.astro';
+import SiteHeader from '../components/SiteHeader.astro';
+import ResultsCharts from '../components/ResultsCharts.astro';
+import GalleryGrid from '../components/gallery/GalleryGrid.astro';
+import { pieces } from '../lib/pieces';
+import Button from '../components/Button.astro';
+
+const models = new Set(pieces.map((piece) => piece.model)).size;
+---
+
+<Layout title="Bach Bench">
+  <SiteHeader />
+  <main class="home">
+    <section class="hero" aria-labelledby="mission">
+      <h1 id="mission">Can AI compose?</h1>
+      <div class="hero-body">
+        <p>
+          Every model gets the same open instruction:{" "}
+          <strong
+            >compose 15&nbsp;seconds of original music, with a visual that moves
+            to it.</strong
+          > Each Piece is published as made, measured the same way, and judged by
+          people.
+        </p>
+        <div class="hero-actions">
+          <Button variant="solid" glow href="/listen" icon="play">Listen</Button>
+          <Button href="/method">Method</Button>
+          {models > 0 && <span class="tested"><b>{models}</b> models with Pieces</span>}
+        </div>
+      </div>
+    </section>
+
+    {pieces.length > 0 && <section class="board results-page" aria-labelledby="board-title">
+      <div class="section-head">
+        <h2 id="board-title">Measures</h2>
+        <a href="/analysis">Full analysis</a>
+      </div>
+      <ResultsCharts set="home" />
+    </section>}
+
+    <section class="pieces" aria-labelledby="gallery-title">
+      <div class="section-head">
+        <h2 id="gallery-title">Gallery {pieces.length > 0 && <span>{pieces.length}</span>}</h2>
+      </div>
+      <GalleryGrid />
+    </section>
+  </main>
+</Layout>
+
+<style>
+  .home {
+    max-width: 1440px;
+    margin: 0 auto;
+    padding: 0 var(--gutter) 96px;
+  }
+  .hero {
+    padding: clamp(40px, 9vw, 112px) 0 clamp(48px, 8vw, 96px);
+  }
+  h1 {
+    max-width: 13ch;
+    font-size: clamp(44px, 7.4vw, 104px);
+    font-weight: 600;
+    line-height: 0.96;
+    letter-spacing: -0.055em;
+    text-wrap: balance;
+  }
+  .hero p {
+    max-width: 46ch;
+    margin-top: clamp(20px, 2.4vw, 32px);
+    font-size: clamp(16px, 1.5vw, 20px);
+    line-height: 1.45;
+    letter-spacing: -0.012em;
+    color: var(--muted);
+    text-wrap: pretty;
+  }
+  .hero-actions {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    margin-top: 28px;
+  }
+  .tested {
+    margin-left: 4px;
+    font-size: 13px;
+    color: var(--faint);
+  }
+  .tested b {
+    font: 500 13px var(--mono);
+    color: var(--ink);
+  }
+  .hero strong {
+    font-weight: 500;
+    color: var(--ink);
+  }
+  .section-head {
+    display: flex;
+    align-items: baseline;
+    justify-content: space-between;
+    gap: 16px;
+    margin-bottom: 16px;
+  }
+  .section-head h2 {
+    font-size: 20px;
+    font-weight: 600;
+    letter-spacing: -0.03em;
+  }
+  .section-head h2 span {
+    margin-left: 6px;
+    font: 500 13px var(--mono);
+    color: var(--faint);
+    letter-spacing: 0;
+  }
+  .section-head a {
+    font-size: 14px;
+    color: var(--muted);
+  }
+  @media (hover: hover) and (pointer: fine) {
+    .section-head a:hover {
+      color: var(--ink);
+    }
+  }
+  .board.results-page {
+    max-width: none;
+    padding-inline: 0;
+  }
+  .board :global(.cf) {
+    padding: 16px 16px 12px;
+  }
+  .board :global(.cf-title) {
+    font-size: 15px;
+  }
+  @media (min-width: 1024px) {
+    .board :global(.charts) {
+      grid-template-columns: repeat(3, minmax(0, 1fr));
+    }
+  }
+  @media (min-width: 1024px) {
+    .hero {
+      display: grid;
+      grid-template-columns: minmax(0, 1.35fr) minmax(0, 1fr);
+      align-items: end;
+      gap: 64px;
+      padding: 56px 0 56px;
+    }
+    h1 {
+      font-size: clamp(56px, 5.6vw, 84px);
+    }
+    .hero p {
+      margin-top: 0;
+      font-size: 18px;
+    }
+  }
+  .pieces {
+    margin-top: clamp(64px, 8vw, 112px);
+  }
+</style>

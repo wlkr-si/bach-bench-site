@@ -1,0 +1,84 @@
+---
+import { results } from '../../lib/results';
+import { scoreMetrics } from '../../lib/scores';
+
+interface Props {
+  piece: (typeof results)[number];
+}
+const { piece } = Astro.props;
+const score = piece.score;
+const parts: Record<string, [string, number | null | undefined][]> = {
+  complexity: [
+    ['Music', score?.musicComplexity],
+    ['Picture', score?.pictureComplexity],
+  ],
+  sync: [
+    ['Event', score?.syncMeasures?.event?.score],
+    ['Continuous', score?.syncMeasures?.continuous?.score],
+  ],
+};
+const whole = (value: number | null | undefined) =>
+  value == null ? '—' : String(Math.round(value));
+const usd = (value: number | null | undefined) =>
+  value == null
+    ? '—'
+    : value >= 1
+      ? `$${value.toFixed(2)}`
+      : value >= 0.01
+        ? `$${value.toFixed(3)}`
+        : `$${value.toFixed(4)}`;
+---
+
+<section class="glance" aria-labelledby="scores-title">
+  <h2 id="scores-title">Scores and cost</h2>
+  <div class="tiles">
+    {
+      scoreMetrics.map(({ key, label }) => {
+        const value = piece.values[key];
+        const field = results
+          .map((entry) => entry.values[key])
+          .filter((entry): entry is number => entry != null);
+        const min = Math.min(...field);
+        const max = Math.max(...field);
+        const print = key === 'costUsd' ? usd : whole;
+        const position =
+          value == null || max === min
+            ? 50
+            : (100 * (value - min)) / (max - min);
+        return (
+          <div class="tile">
+            <p class="tile-label">{label}</p>
+            <p class:list={['tile-value', { dash: value == null }]}>
+              {print(value)}
+            </p>
+            {value != null && (
+              <div
+                class="range"
+                role="img"
+                aria-label={`${label} in the field: lowest ${print(min)}, highest ${print(max)}.`}
+              >
+                <span>{print(min)}</span>
+                <span class="track">
+                  <i style={`left:${position}%`} />
+                </span>
+                <span>{print(max)}</span>
+              </div>
+            )}
+            {parts[key] && (
+              <p class="tile-parts">
+                {parts[key].map(([name, reading]) => (
+                  <span>
+                    {name} <b>{whole(reading)}</b>
+                  </span>
+                ))}
+              </p>
+            )}
+          </div>
+        );
+      })
+    }
+  </div>
+  <p class="note">
+    Each line runs from the lowest to the highest Piece in the field.
+  </p>
+</section>

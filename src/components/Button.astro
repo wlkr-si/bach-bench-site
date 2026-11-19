@@ -1,0 +1,192 @@
+---
+import Icon from './Icon.astro';
+
+/* The site's one button set.
+   solid: the main action on a screen (white on black).
+   quiet: secondary actions and navigation; text that lifts on hover.
+   glow: adds a flowing spectrum rim along the bottom edge and a soft light
+   beneath it. Use it on at most one button per screen.
+   Both are links or buttons with the same height, radius and icon spacing. */
+interface Props {
+  href?: string;
+  variant?: 'solid' | 'quiet';
+  icon?: 'download' | 'play' | 'back' | 'analytics' | 'link';
+  download?: string;
+  glow?: boolean;
+  class?: string;
+}
+const {
+  href,
+  variant = 'quiet',
+  icon,
+  download,
+  glow = false,
+  class: extra,
+} = Astro.props;
+const Tag = href ? 'a' : 'button';
+---
+
+<Tag
+  class:list={[
+    'btn',
+    `btn--${variant}`,
+    { 'btn--back': icon === 'back', 'btn--glow': glow },
+    extra,
+  ]}
+  href={href}
+  download={download}
+  type={href ? undefined : 'button'}
+  >{icon && <Icon name={icon} />}<span><slot /></span></Tag
+>
+
+<style>
+  .btn {
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+    min-width: 0;
+    max-width: 100%;
+    height: 32px;
+    padding: 0 12px;
+    border: 0;
+    border-radius: var(--radius);
+    font: 500 14px/1 var(--font);
+    letter-spacing: -0.006em;
+    text-decoration: none;
+    cursor: pointer;
+    transition:
+      color 120ms ease,
+      background-color 120ms ease,
+      transform 120ms var(--ease-out);
+  }
+  .btn span {
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+  }
+  .btn :global(svg) {
+    flex: 0 0 auto;
+    transition: transform 160ms var(--ease-out);
+  }
+  .btn:active {
+    transform: scale(0.97);
+  }
+  .btn--solid {
+    background: var(--ink);
+    color: var(--paper);
+  }
+  .btn--quiet {
+    padding: 0 10px;
+    background: transparent;
+    color: var(--muted);
+  }
+  /* A quiet button sitting at the start of a line keeps its text aligned with the line. */
+  .btn--quiet:first-child {
+    margin-left: -10px;
+  }
+  .btn--back {
+    padding-left: 6px;
+    margin-left: -6px;
+  }
+  /* Glow: the fill moves to ::after so the light (::before) can sit beneath it.
+     The rim is the spectrum showing through the bottom of a transparent border. */
+  .btn--glow {
+    --fill: var(--ink);
+    --spectrum: linear-gradient(
+      90deg,
+      #ff6d1b,
+      #ffee55,
+      #5bff89,
+      #4d8aff,
+      #6b5fff,
+      #ff64f9,
+      #ff6565,
+      #ff6d1b
+    );
+    position: relative;
+    z-index: 0;
+    background: transparent;
+  }
+  .btn--glow::after,
+  .btn--glow::before {
+    content: '';
+    position: absolute;
+    pointer-events: none;
+  }
+  .btn--glow::after {
+    inset: 0;
+    z-index: -1;
+    border: 1.5px solid transparent;
+    border-radius: inherit;
+    background:
+      linear-gradient(var(--fill), var(--fill)) padding-box,
+      linear-gradient(var(--fill) 15%, rgb(247 247 247 / 0%) 70%) border-box,
+      var(--spectrum) border-box;
+    background-size:
+      100% 100%,
+      100% 100%,
+      200% 100%;
+    animation: btn-rim 3s linear infinite;
+  }
+  .btn--glow::before {
+    /* The light follows the button's own outline from halfway down. The fill
+       hides its top half, so it hugs the bottom edge and wraps up both lower
+       corners in a soft U. */
+    inset: 50% 0 -4px;
+    z-index: -2;
+    border-radius: inherit;
+    background: var(--spectrum);
+    background-size: 200% 100%;
+    filter: blur(9px) saturate(1.3) brightness(1.1);
+    opacity: 0.9;
+    animation: btn-light 3s linear infinite;
+  }
+  @keyframes btn-rim {
+    from {
+      background-position:
+        0 0,
+        0 0,
+        0% 0;
+    }
+    to {
+      background-position:
+        0 0,
+        0 0,
+        -200% 0;
+    }
+  }
+  @keyframes btn-light {
+    from {
+      background-position: 0% 0;
+    }
+    to {
+      background-position: -200% 0;
+    }
+  }
+  @media (prefers-reduced-motion: reduce) {
+    .btn--glow::after,
+    .btn--glow::before {
+      animation: none;
+    }
+  }
+  @media (hover: hover) and (pointer: fine) {
+    .btn--glow.btn--solid:hover {
+      --fill: #e6e6e6;
+      background: transparent;
+    }
+    .btn--glow:hover::after,
+    .btn--glow:hover::before {
+      animation-duration: 1.2s;
+    }
+    .btn--solid:hover {
+      background: #d9d9d9;
+    }
+    .btn--quiet:hover {
+      color: var(--ink);
+      background: var(--soft);
+    }
+    .btn--back:hover :global(svg) {
+      transform: translateX(-2px);
+    }
+  }
+</style>

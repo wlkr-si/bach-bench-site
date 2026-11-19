@@ -1,0 +1,46 @@
+{
+  "name": "bach-bench-site",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "build": "node src/astro.mjs build",
+    "typecheck": "node src/astro.mjs check",
+    "lint": "eslint src scripts",
+    "check": "npm run build && npm run typecheck && npm run lint && node scripts/check-pages.mjs",
+    "dev": "node src/astro.mjs dev",
+    "preview": "node src/astro.mjs preview",
+    "charts:images": "node scripts/chart-images.mjs"
+  },
+  "dependencies": {
+    "@astrojs/react": "7.1.1",
+    "@fontsource-variable/geist": "5.3.0",
+    "@fontsource-variable/geist-mono": "^5.2.0",
+    "@tailwindcss/vite": "4.3.3",
+    "astro": "7.3.5",
+    "react": "19.3.1",
+    "react-dom": "19.3.1",
+    "tailwindcss": "4.3.3"
+  },
+  "devDependencies": {
+    "@astrojs/check": "0.9.10",
+    "@types/node": "26.6.6",
+    "@types/react": "19.3.0",
+    "@types/react-dom": "19.3.0",
+    "@typescript-eslint/parser": "^8.0.0",
+    "eslint": "10.15.0",
+    "espree": "11.2.0",
+    "globals": "17.14.0",
+    "prettier": "3.9.6",
+    "prettier-plugin-astro": "0.14.1",
+    "typescript": "6.0.3",
+    "playwright": "1.65.1",
+    "parse5": "8.1.1",
+    "wrangler": "4.165.0"
+  },
+  "engines": {
+    "node": ">=24"
+  },
+  "overrides": {
+    "@astrojs/compiler-rs": "0.5.1"
+  }
+}

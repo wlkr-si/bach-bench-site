@@ -1,0 +1,187 @@
+---
+import ResultsCharts from '../components/ResultsCharts.astro';
+import { formatCost } from '../lib/scores';
+import Layout from '../layouts/Layout.astro';
+import SiteHeader from '../components/SiteHeader.astro';
+import { results, metrics, format, provenance } from '../lib/results';
+import '../styles/analytics.css';
+
+const ranges = metrics.map(({ key }) => {
+  const readings = results
+    .map((piece) => piece.values[key])
+    .filter(
+      (value): value is number => value != null && Number.isFinite(value),
+    );
+  return [Math.min(...readings), Math.max(...readings)];
+});
+---
+
+<Layout title="Analysis · Bach Bench" poster={results.length ? '/charts/1-balancevscost-16x9.png' : undefined}>
+  <SiteHeader current="analysis" />
+  <main class="results-page">
+    <div class="results-title">
+      <h1>Analysis</h1><a href="/method">Method</a>
+    </div>
+    {results.length === 0 ? <p>No measurements available.</p> : <>
+    <ResultsCharts />
+    <section class="cf results-table" aria-labelledby="t-measurements">
+      <div class="cf-head">
+        <h2 class="cf-title" id="t-measurements">Measurements</h2>
+        <label class="sel">
+          <span class="k">Measure</span>
+          <select id="metric" aria-label="Measure">
+            {
+              metrics.map(({ label, unit }, i) => (
+                <option value={i}>
+                  {label}
+                  {unit && ` (${unit})`}
+                </option>
+              ))
+            }
+          </select>
+          <svg
+            viewBox="0 0 16 16"
+            width="12"
+            height="12"
+            fill="none"
+            stroke="currentColor"
+            stroke-width="1.5"
+            stroke-linecap="round"
+            stroke-linejoin="round"
+            aria-hidden="true"><path d="M4 6l4 4 4-4"></path></svg
+          >
+        </label>
+      </div>
+      {
+        metrics.map(({ key, label, unit }, index) => (
+          <table class="results" data-result={index} hidden={index !== 0}>
+            <colgroup>
+              <col class="model" />
+              <col />
+            </colgroup>
+            <thead>
+              <tr>
+                <th scope="col" aria-sort="ascending">
+                  <button type="button" data-sort="model">
+                    Model <span aria-hidden="true">↑</span>
+                  </button>
+                </th>
+                <th scope="col">
+                  <button type="button" data-sort="value">
+                    {label}
+                    {unit && ` (${unit})`} <span aria-hidden="true" />
+                  </button>
+                </th>
+              </tr>
+            </thead>
+            <tbody>
+              {results.map((piece) => {
+                const value = piece.values[key];
+                const [min, max] = ranges[index];
+                const pct =
+                  value == null || min === max
+                    ? 50
+                    : ((value - min) * 100) / (max - min);
+                return (
+                  <tr data-model={piece.modelName} data-value={value}>
+                    <th scope="row">
+                      <a href={`/p/${piece.slug}/analytics`}>
+                        {piece.modelName}
+                      </a>
+                    </th>
+                    <td>
+                      <div class="result-cell">
+                        {value != null ? (
+                          <div class="result-line" aria-hidden="true">
+                            <i style={`left:${pct}%`} />
+                          </div>
+                        ) : (
+                          <span
+                            class="result-line"
+                            aria-hidden="true"
+                            style="visibility:hidden"
+                          />
+                        )}
+                        <span
+                          class:list={['result-value', { dash: value == null }]}
+                        >
+                          {key === 'costUsd'
+                            ? formatCost(value)
+                            : format(value)}
+                          {key === 'wall' &&
+                            provenance(piece.run.wallSeconds) && (
+                              <small>{provenance(piece.run.wallSeconds)}</small>
+                            )}
+                        </span>
+                      </div>
+                    </td>
+                  </tr>
+                );
+              })}
+            </tbody>
+          </table>
+        ))
+      }
+      <div class="cf-foot">
+        {
+          metrics.map(({ say }, index) => (
+            <p class="cf-cap" data-say={index} hidden={index !== 0}>
+              {say}
+            </p>
+          ))
+        }
+      </div>
+    </section>
+    </>}
+  </main>
+</Layout>
+
+<script>
+  const picker = document.querySelector<HTMLSelectElement>('#metric');
+  const tables = document.querySelectorAll<HTMLTableElement>('[data-result]');
+  const notes = document.querySelectorAll<HTMLElement>('[data-say]');
+  function showMetric() {
+    if (!picker) return;
+    tables.forEach((table) => {
+      table.hidden = table.dataset.result !== picker.value;
+    });
+    notes.forEach((note) => {
+      note.hidden = note.dataset.say !== picker.value;
+    });
+  }
+  picker?.addEventListener('change', showMetric);
+  showMetric();
+  for (const table of tables) {
+    const buttons =
+      table.querySelectorAll<HTMLButtonElement>('button[data-sort]');
+    for (const button of buttons)
+      button.addEventListener('click', () => {
+        const header = button.closest('th')!;
+        const ascending = header.getAttribute('aria-sort') !== 'ascending';
+        const column = button.dataset.sort;
+        const body = table.tBodies[0];
+        const rows = Array.from(body.rows);
+        rows.sort((a, b) => {
+          const left = a.dataset.value,
+            right = b.dataset.value;
+          if (column === 'value' && (!left || !right))
+            return Number(!left) - Number(!right);
+          const difference =
+            column === 'model'
+              ? a.dataset.model!.localeCompare(b.dataset.model!)
+              : Number(left) - Number(right);
+          return ascending ? difference : -difference;
+        });
+        body.append(...rows);
+        buttons.forEach((other) => {
+          other.closest('th')!.removeAttribute('aria-sort');
+          other.querySelector('span')!.textContent = '';
+        });
+        header.setAttribute(
+          'aria-sort',
+          ascending ? 'ascending' : 'descending',
+        );
+        button.querySelector('span')!.textContent = ascending ? '↑' : '↓';
+      });
+  }
+</script>

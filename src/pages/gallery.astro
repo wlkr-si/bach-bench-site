@@ -1,0 +1,26 @@
+---
+import Layout from '../layouts/Layout.astro';
+import SiteHeader from '../components/SiteHeader.astro';
+import GalleryGrid from '../components/gallery/GalleryGrid.astro';
+---
+
+<Layout title="Gallery · Bach Bench">
+  <SiteHeader current="gallery" />
+  <main>
+    <h1 class="sr-only">Gallery</h1>
+    <GalleryGrid />
+  </main>
+</Layout>
+
+<style>
+  main {
+    max-width: 1600px;
+    margin: 0 auto;
+    padding: 8px var(--gutter) 80px;
+  }
+  @media (min-width: 1024px) {
+    main {
+      padding-top: 16px;
+    }
+  }
+</style>
