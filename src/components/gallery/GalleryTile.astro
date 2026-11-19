@@ -1,4 +1,5 @@
 ---
+import { vaultMediaAllowsCors } from '../../lib/clip-buffer';
 import ClipActions from '../clip/ClipActions.astro';
 import Icon from '../Icon.astro';
 
@@ -14,9 +15,10 @@ interface Props {
 }
 
 const { piece, eager } = Astro.props;
+const canBuffer = vaultMediaAllowsCors(Astro.url.origin);
 ---
 
-<li data-tile data-clip={piece.clipUrl}>
+<li data-tile data-clip={piece.clipUrl} data-buffer={canBuffer ? true : undefined}>
   <a href={`/p/${piece.slug}`}>
     <span class="poster">
       <img
@@ -89,7 +91,8 @@ const { piece, eager } = Astro.props;
     object-fit: contain;
     opacity: 0;
   }
-  li[data-state] .layer :global(video) {
+  li[data-state='playing'] .layer :global(video),
+  li[data-state='paused'] .layer :global(video) {
     opacity: 1;
   }
   .progress {
@@ -178,6 +181,8 @@ const { piece, eager } = Astro.props;
 </style>
 
 <script>
+  import { allowPlayback, canStreamClip, downloadClip } from '../../lib/clip-buffer';
+
   // One tile plays at a time. Clips load only when a tile is first played.
   type Tile = {
     tile: HTMLElement;
@@ -185,15 +190,17 @@ const { piece, eager } = Astro.props;
     bar: HTMLElement;
     title: string;
     video?: HTMLVideoElement;
+    load?: AbortController;
+    objectUrl?: string;
   };
-  const tiles: Tile[] = [
-    ...document.querySelectorAll<HTMLElement>('[data-tile]'),
-  ].map((tile) => ({
-    tile,
-    button: tile.querySelector<HTMLButtonElement>('[data-play]')!,
-    bar: tile.querySelector<HTMLElement>('.progress i')!,
-    title: tile.querySelector('h2')!.textContent!,
-  }));
+  const tiles = new WeakMap<HTMLElement, Tile>();
+  function entryFor(tile: HTMLElement, button: HTMLButtonElement): Tile {
+    const cached = tiles.get(tile);
+    if (cached) return cached;
+    const entry = { tile, button, bar: tile.querySelector<HTMLElement>('.progress i')!, title: tile.querySelector('h2')!.textContent! };
+    tiles.set(tile, entry);
+    return entry;
+  }
   let active: Tile | undefined;
 
   function label(entry: Tile, playing: boolean) {
@@ -205,10 +212,15 @@ const { piece, eager } = Astro.props;
 
   function reset(entry: Tile) {
     const { video, tile, bar } = entry;
+    entry.load?.abort();
+    entry.load = undefined;
     if (video) {
       video.pause();
-      video.currentTime = 0;
+      video.remove();
+      entry.video = undefined;
     }
+    if (entry.objectUrl) URL.revokeObjectURL(entry.objectUrl);
+    entry.objectUrl = undefined;
     delete tile.dataset.state;
     bar.style.transform = 'scaleX(0)';
     label(entry, false);
@@ -222,7 +234,6 @@ const { piece, eager } = Astro.props;
     video.preload = 'auto';
     video.setAttribute('aria-hidden', 'true');
     video.poster = entry.tile.querySelector('img')!.currentSrc;
-    video.src = entry.tile.dataset.clip!;
     video.addEventListener('timeupdate', () => {
       entry.bar.style.transform = `scaleX(${video.duration ? video.currentTime / video.duration : 0})`;
     });
@@ -234,7 +245,7 @@ const { piece, eager } = Astro.props;
       if (!video.paused) entry.tile.dataset.state = 'loading';
     });
     video.addEventListener('pause', () => {
-      if (video.ended || !entry.tile.dataset.state) return;
+      if (video.ended || entry.load || !entry.tile.dataset.state) return;
       entry.tile.dataset.state = 'paused';
       label(entry, false);
     });
@@ -244,20 +255,49 @@ const { piece, eager } = Astro.props;
     return video;
   }
 
-  for (const entry of tiles) {
-    entry.button.addEventListener('click', () => {
-      const video = videoFor(entry);
-      if (active === entry && !video.paused) {
-        video.pause();
-        return;
-      }
-      if (active && active !== entry) reset(active);
-      active = entry;
-      entry.tile.dataset.state = video.readyState < 3 ? 'loading' : 'playing';
-      label(entry, true);
-      void video.play().catch(() => reset(entry));
+  function play(entry: Tile, video: HTMLVideoElement) {
+    void video.play().catch(() => {
+      if (entry === active) reset(entry);
     });
   }
+
+  document.addEventListener('click', (event) => {
+    if (!(event.target instanceof Element)) return;
+    const button = event.target.closest<HTMLButtonElement>('[data-tile] [data-play]');
+    const tile = button?.closest<HTMLElement>('[data-tile]');
+    if (!button || !tile) return;
+    const entry = entryFor(tile, button);
+    if (entry.load) {
+      reset(entry);
+      return;
+    }
+    const video = videoFor(entry);
+    if (active === entry && !video.paused) {
+      video.pause();
+      return;
+    }
+    if (active && active !== entry) reset(active);
+    active = entry;
+    tile.dataset.state = video.readyState < 3 ? 'loading' : 'playing';
+    if (video.hasAttribute('src') || canStreamClip() || !tile.hasAttribute('data-buffer')) {
+      if (!video.hasAttribute('src')) video.src = tile.dataset.clip!;
+      play(entry, video);
+      return;
+    }
+    const load = new AbortController();
+    entry.load = load;
+    button.setAttribute('aria-label', `Cancel loading ${entry.title}`);
+    allowPlayback(video);
+    void downloadClip(tile.dataset.clip!, load.signal).then((blob) => {
+      if (entry.load !== load) return;
+      entry.load = undefined;
+      entry.objectUrl = URL.createObjectURL(blob);
+      video.src = entry.objectUrl;
+      play(entry, video);
+    }).catch(() => {
+      if (entry.load === load) reset(entry);
+    });
+  });
 
   const stopAll = () => {
     if (active) reset(active);

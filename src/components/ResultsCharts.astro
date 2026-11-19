@@ -1,5 +1,4 @@
 ---
-import fontFaces from '../styles/chart-fonts.css?raw';
 import '../styles/charts.css';
 
 const { set = 'results' } = Astro.props;
@@ -17,7 +16,6 @@ const chartData = {
 {set === 'results' && <div class="chart-toolbar" id="toolbar" />}
 <div class="charts" id="charts" data-set={set}></div>
 <p id="chart-unavailable" hidden>Charts are temporarily unavailable.</p>
-<style is:inline id="fontfaces" set:html={fontFaces}></style>
 <script
   is:inline
   id="bach-data"
@@ -25,5 +23,29 @@ const chartData = {
   set:html={JSON.stringify(chartData).replace(/</g, '\\u003c')}
 />
 <script>
-  import '../lib/charts.mjs';
+  const chart = document.querySelector<HTMLElement>('#charts')!;
+  async function draw() {
+    const { default: fonts } = await import('../styles/chart-fonts.css?raw');
+    const style = document.createElement('style');
+    style.id = 'fontfaces';
+    style.textContent = fonts;
+    document.head.append(style);
+    await import('../lib/charts.mjs');
+  }
+
+  function start() {
+    void draw().catch(() => {
+      document.querySelector<HTMLElement>('#chart-unavailable')!.hidden = false;
+    });
+  }
+
+  if (chart.dataset.set !== 'home' || location.hash.includes('chart=')) start();
+  else {
+    const observer = new IntersectionObserver(([entry]) => {
+      if (!entry.isIntersecting) return;
+      observer.disconnect();
+      start();
+    }, { rootMargin: '100px 0px' });
+    observer.observe(chart);
+  }
 </script>

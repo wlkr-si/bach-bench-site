@@ -1,17 +1,54 @@
 ---
 import GalleryTile from './GalleryTile.astro';
-const { pieces } = Astro.locals.vault;
+const { pieces, revision } = Astro.locals.vault;
+const { deferred = false } = Astro.props;
+const initialCount = 4;
+const shown = deferred ? pieces.slice(0, initialCount) : pieces;
+const more = deferred && shown.length < pieces.length;
 ---
 
 {pieces.length === 0 ? <p>No Pieces available.</p> : <ul class="gallery-grid" role="list">
   {
-    pieces.map((piece, index) => (
-      <GalleryTile piece={piece} eager={index < 4} />
+    shown.map((piece, index) => (
+      <GalleryTile piece={piece} eager={!deferred && index < initialCount} />
     ))
   }
+  {more && <li class="gallery-more" data-gallery-more={`/gallery/more?revision=${revision}`}>
+    <button type="button" hidden>Load more Pieces</button>
+  </li>}
 </ul>}
 
+<script>
+  const marker = document.querySelector<HTMLElement>('[data-gallery-more]');
+  if (marker) {
+    const retry = marker.querySelector('button')!;
+    async function loadMore() {
+      retry.hidden = true;
+      try {
+        const response = await fetch(marker!.dataset.galleryMore!);
+        if (!response.ok) throw new Error('Gallery unavailable');
+        const document = new DOMParser().parseFromString(await response.text(), 'text/html');
+        const tiles = document.querySelectorAll('[data-tile]');
+        if (response.headers.get('X-Gallery-Replace') === '1') marker!.parentElement!.replaceChildren(...tiles);
+        else marker!.replaceWith(...tiles);
+      } catch {
+        retry.hidden = false;
+      }
+    }
+    retry.addEventListener('click', loadMore);
+    const observer = new IntersectionObserver(([entry]) => {
+      if (!entry.isIntersecting) return;
+      observer.disconnect();
+      void loadMore();
+    }, { rootMargin: '240px 0px' });
+    observer.observe(marker);
+  }
+</script>
+
 <style>
+  .gallery-more {
+    grid-column: 1 / -1;
+  }
   .gallery-grid {
     display: grid;
     grid-template-columns: repeat(2, minmax(0, 1fr));
