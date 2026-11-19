@@ -9,7 +9,7 @@
     "check": "npm run build && npm run typecheck && npm run lint && node scripts/check-pages.mjs",
     "dev": "node src/astro.mjs dev",
     "preview": "node src/astro.mjs preview",
-    "charts:images": "node scripts/chart-images.mjs"
+    "share:images": "node scripts/share-images.mjs"
   },
   "dependencies": {
     "@astrojs/cloudflare": "14.3.0",

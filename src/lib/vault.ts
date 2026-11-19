@@ -1,4 +1,6 @@
-export const vaultOrigin = 'https://vault.bach.wlkr.si';
+import { imageSources, vaultOrigin } from './image-paths.mjs';
+
+export { vaultOrigin };
 
 export type Reading = { value: number | string | null; source: string };
 
@@ -68,9 +70,9 @@ async function readVault<T>(url: string): Promise<T> {
   return response.json();
 }
 
-export async function readIndex(staging: boolean) {
+export async function readIndex(staging: boolean, imageStaging = false) {
   const index = await readVault<VaultIndex>(
-    vaultOrigin + (staging ? '/staging/site-96/index.json' : '/index.json'),
+    vaultOrigin + (imageStaging ? imageSources.staging.index : staging ? '/staging/site-96/index.json' : imageSources.live.index),
   );
   if (index.schemaVersion !== 1 || !/^[a-f0-9]{64}$/.test(index.revision) ||
       !Array.isArray(index.pieces) || !index.titleWordCounts) {
