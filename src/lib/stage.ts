@@ -121,10 +121,7 @@ function mountStage(template: HTMLTemplateElement) {
   }
 
   // Keep the same media element for Safari's per-element playback permission.
-  const video = document.createElement('video');
-  video.playsInline = true;
-  video.preload = 'auto';
-  video.setAttribute('aria-hidden', 'true');
+  const video = root.querySelector<HTMLVideoElement>('video')!;
   let stream = false;
   let next: ReturnType<typeof download> | undefined;
   let active: ReturnType<typeof download> | undefined;
@@ -168,8 +165,13 @@ function mountStage(template: HTMLTemplateElement) {
       if (video.isConnected && typeof slide.media.moveBefore === 'function') slide.media.moveBefore(video, null);
       else slide.media.append(video);
     }
-    if (stream) video.src = slide.piece.clipUrl;
-    else active = prefetched ?? download(current);
+    if (video.hasAttribute('src')) {
+      stream = true;
+    } else if (stream) {
+      video.src = slide.piece.clipUrl;
+    } else {
+      active = prefetched ?? download(current);
+    }
   }
 
   function begin(index: number, token: number) {
@@ -185,7 +187,8 @@ function mountStage(template: HTMLTemplateElement) {
     const index = current;
     const token = ++playback;
     setState(index, 'loading');
-    if (video.error || (!video.hasAttribute('src') && !active)) prepare();
+    if (video.error) clearSource();
+    if (!video.hasAttribute('src') && !active) prepare();
     if (video.hasAttribute('src')) {
       if (fromGesture) unlocked = true;
       begin(index, token);

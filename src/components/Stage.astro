@@ -1,5 +1,5 @@
 ---
-import { vaultMediaAllowsCors } from '../lib/clip-buffer';
+import { fastClipDownlink, vaultMediaAllowsCors } from '../lib/clip-buffer';
 import SiteHeader from './SiteHeader.astro';
 import StageSlide from './StageSlide.astro';
 import { pieceAddress } from '../lib/share';
@@ -20,6 +20,12 @@ const slides = pieces.map(({ title, modelName, slug, clipUrl, posterUrl }) => ({
   <main class="st" data-stage data-initial={initial} data-cors={cors ? 'true' : undefined}>
     {first ? <StageSlide piece={first} index={initial} total={total} cors={cors} first /> :
       <p class="st-empty">No Pieces available.</p>}
+    {first && <script define:vars={{ fastClipDownlink }}>
+      const video = document.currentScript.closest('[data-stage]').querySelector('video');
+      const connection = navigator.connection;
+      if (connection && !connection.saveData && connection.downlink >= fastClipDownlink)
+        video.src = video.dataset.clip;
+    </script>}
   </main>
 </div>
 {first && <>
