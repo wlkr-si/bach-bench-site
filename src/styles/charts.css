@@ -71,7 +71,7 @@
 
 /* =========================== CHART FRAME =========================== */
 .charts{display:grid;grid-template-columns:minmax(0,1fr);gap:16px}
-.cf{position:relative;background:var(--card);border:1px solid var(--line);border-radius:12px;padding:14px 16px 12px}
+.cf{scroll-margin-top:64px;position:relative;background:var(--card);border:1px solid var(--line);border-radius:12px;padding:14px 16px 12px}
 .cf-head{display:flex;flex-wrap:wrap;align-items:center;gap:8px 12px}
 .cf-title{display:flex;align-items:center;gap:8px;flex:1 1 auto;min-width:0;font-size:var(--cf-title);font-weight:600;letter-spacing:-0.012em;color:var(--ink)}
 .cf-tools{display:flex;flex-wrap:wrap;align-items:center;gap:6px;order:1}

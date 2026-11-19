@@ -59,7 +59,7 @@ export function renderSleeve(input) {
   const silentPiece = (p) => !p.env || Math.max(...p.env) <= -60;
   const CW = 1080,
     CH = 1350,
-    M = 72;
+    M = 73;
   const F = (w, s, mono) =>
     `${w} ${s}px ${mono ? '"Geist Mono", ui-monospace, Menlo, monospace' : 'Geist, "Helvetica Neue", Arial, sans-serif'}`;
   const LENS_A = new Path2D(
