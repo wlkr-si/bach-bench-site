@@ -4,12 +4,17 @@ import SiteHeader from '../components/SiteHeader.astro';
 import ResultsCharts from '../components/ResultsCharts.astro';
 import GalleryGrid from '../components/gallery/GalleryGrid.astro';
 import Button from '../components/Button.astro';
+import { chartImagePath } from '../lib/share-images';
 
 const { pieces } = Astro.locals.vault;
 const models = new Set(pieces.map((piece) => piece.model)).size;
+const chart = Astro.url.searchParams.get('chart');
+const image = await Astro.locals.shareImage;
+const chartPreview = chart && image?.(chartImagePath(chart, '16x9'));
+const preview = chartPreview || image?.(chartImagePath('col-complexity', '16x9'));
 ---
 
-<Layout title="Bach Bench">
+<Layout title="Bach Bench" poster={preview} shareChart={chartPreview && chart}>
   <SiteHeader />
   <main class="home">
     <section class="hero" aria-labelledby="mission">

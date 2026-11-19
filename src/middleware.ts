@@ -1,5 +1,6 @@
 import { defineMiddleware } from 'astro:middleware';
 import { readDetail, readIndex } from './lib/vault';
+import { readShareImages } from './lib/share-images';
 
 const previewHost = 'bach-bench-site.walkerworlddiscord.workers.dev';
 const stagingCookie = 'bach-staging';
@@ -25,8 +26,16 @@ export const onRequest = defineMiddleware(async (context, next) => {
     }
   }
 
+  const imageRender = import.meta.env.DEV && url.hostname === 'localhost'
+    ? url.searchParams.get('image-render')
+    : null;
+  const imageStaging = imageRender === 'staging' ||
+    (url.hostname === previewHost && url.searchParams.get('vault') === 'staging-images');
   try {
-    locals.vault = await readIndex(staging);
+    locals.vault = await readIndex(staging, imageStaging);
+    if ((!staging || imageStaging) && !imageRender && (pieceRoute || path === '/' || path === '/analysis')) {
+      locals.shareImage = readShareImages(imageStaging ? 'staging' : 'live', locals.vault.revision);
+    }
     if (pieceRoute) {
       locals.piece = locals.vault.pieces.find(({ slug }) => slug === pieceRoute[1]);
       if (!locals.piece) locals.vaultProblem = 'missing';

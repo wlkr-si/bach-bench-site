@@ -666,7 +666,7 @@ function writeHash(){
   if (state.labs) q.set('labs', [...state.labs].join(','));
   if (state.hl) q.set('model', state.hl);
   if (state.lbl !== 'all') q.set('labels', state.lbl);
-  const linked = new URLSearchParams(location.hash.slice(1)).get('chart');
+  const linked = new URLSearchParams(location.hash.slice(1)).get('chart') || new URLSearchParams(location.search).get('chart');
   if (linked) q.set('chart', linked);
   for (const d of CHARTS) for (const [k, v] of Object.entries(state.c[d.key])) if (v !== d.defaults[k]) q.set(`${d.key}.${k}`, v);
   const s = q.toString().replace(/%2C/g, ',');
@@ -820,7 +820,10 @@ function ExportMenu(view){
 /* A link that reopens this chart in its current view. */
 function chartLink(view){
   const q = new URLSearchParams(location.hash.slice(1)); q.set('chart', view.def.key);
-  return location.origin + location.pathname + '#' + q.toString().replace(/%2C/g, ',');
+  const address = new URL(location.href);
+  address.searchParams.set('chart', view.def.key);
+  address.hash = q.toString().replace(/%2C/g, ',');
+  return address.href;
 }
 function download(blob, name){ const a = document.createElement('a'); a.href = URL.createObjectURL(blob); a.download = name; document.body.appendChild(a); a.click(); setTimeout(() => { URL.revokeObjectURL(a.href); a.remove(); }, 1000); }
 
@@ -1074,7 +1077,7 @@ window.__bach = { exportDataURL: async (key, fmt) => (await exportCanvas(views.f
   views = CHARTS.filter(d => !!d.home === home).map(d => new ChartView(d));
   views.forEach(v => root.appendChild(v.sec));
   commit();
-  const linked = new URLSearchParams(location.hash.slice(1)).get('chart');
+  const linked = new URLSearchParams(location.hash.slice(1)).get('chart') || new URLSearchParams(location.search).get('chart');
   if (linked) document.getElementById('chart-' + linked)?.scrollIntoView({ block: 'start' });
   document.documentElement.dataset.ready = '1';
 })();

@@ -7,8 +7,10 @@ import FieldScores from '../../../components/analytics/FieldScores.astro';
 import Score from '../../../components/analytics/Score.astro';
 import { pieceValues, metrics, format, provenance } from '../../../lib/results';
 import '../../../styles/analytics.css';
+import { pieceImagePath } from '../../../lib/share-images';
 
 const entry = Astro.locals.piece!;
+const publishedCard = (await Astro.locals.shareImage)?.(pieceImagePath(entry.slug));
 const detail = Astro.locals.detail!;
 const piece = { ...entry, values: pieceValues(entry), run: detail.measurements, analysis: detail.analysis };
 const field = Astro.locals.vault.pieces.map(({ slug, modelName, title, measurements }) => ({
@@ -40,7 +42,7 @@ const runFields = [
 
 <Layout
   title={`${piece.title} · ${piece.modelName} · Bach Bench`}
-  poster={piece.posterUrl}
+  poster={publishedCard ?? piece.posterUrl}
 >
   <SiteHeader />
   <main class="measurements">
@@ -58,6 +60,8 @@ const runFields = [
     <img
       class="sleeve"
       id="sleeve"
+      src={publishedCard}
+      data-revision={Astro.locals.vault.revision}
       width="1080"
       height="1350"
       alt={`Sound waveform and measured figures for ${piece.title} by ${piece.modelName}`}
@@ -156,28 +160,53 @@ const runFields = [
 </Layout>
 
 <script>
-  import { renderSleeve } from '../../../lib/sleeve.mjs';
-
   const img = document.querySelector<HTMLImageElement>('#sleeve')!;
   const link = document.querySelector<HTMLAnchorElement>('.save-sleeve')!;
-  const payload = JSON.parse(document.querySelector('#sleeve-data')!.textContent!);
+  let localCard: Promise<string> | undefined;
 
-  const card = Promise.all([
-    document.fonts.load('600 128px Geist'),
-    document.fonts.load('500 40px Geist'),
-    document.fonts.load('400 28px Geist'),
-  ]).then(() => {
-    const image = 'data:image/png;base64,' + renderSleeve(payload);
-    img.src = image;
-    link.href = image;
-  }).catch((error) => {
-    console.error('Could not draw the Piece card', error);
-  });
+  function drawCard() {
+    localCard ??= Promise.all([
+      import('../../../lib/sleeve.mjs'),
+      document.fonts.load('600 128px Geist'),
+      document.fonts.load('500 40px Geist'),
+      document.fonts.load('400 28px Geist'),
+    ]).then(([{ renderSleeve }]) => {
+      const payload = JSON.parse(document.querySelector('#sleeve-data')!.textContent!);
+      const image = 'data:image/png;base64,' + renderSleeve(payload);
+      img.src = image;
+      return image;
+    });
+    return localCard;
+  }
+
+  function restoreCard() {
+    drawCard().catch(error => console.error('Could not draw the Piece card', error));
+  }
+
+  img.addEventListener('error', restoreCard, { once: true });
+  if (!img.hasAttribute('src') || (img.complete && !img.naturalWidth)) restoreCard();
 
   link.addEventListener('click', async (event) => {
-    if (link.href.startsWith('data:')) return;
+    if (link.href.startsWith('data:') || link.href.startsWith('blob:')) return;
     event.preventDefault();
-    await card;
-    if (link.href.startsWith('data:')) link.click();
+    let blobUrl: string | undefined;
+    try {
+      if (img.src.startsWith('https:')) {
+        try {
+          const response = await fetch(img.src);
+          if (!response.ok) throw new Error('Published card is unavailable');
+          blobUrl = URL.createObjectURL(await response.blob());
+        } catch {
+          // Live rendering also works when the image store is unavailable.
+        }
+      }
+      link.href = blobUrl ?? await drawCard();
+      link.click();
+    } catch (error) {
+      console.error('Could not save the Piece card', error);
+    } finally {
+      link.href = '#sleeve';
+      if (blobUrl) setTimeout(URL.revokeObjectURL, 1000, blobUrl);
+    }
   });
 </script>

@@ -5,6 +5,7 @@ import Layout from '../layouts/Layout.astro';
 import SiteHeader from '../components/SiteHeader.astro';
 import { pieceValues, metrics, format } from '../lib/results';
 import '../styles/analytics.css';
+import { chartImagePath } from '../lib/share-images';
 
 const results = Astro.locals.vault.pieces.map((piece) => ({ ...piece, values: pieceValues(piece) }));
 const ranges = metrics.map(({ key }) => {
@@ -15,9 +16,13 @@ const ranges = metrics.map(({ key }) => {
     );
   return [Math.min(...readings), Math.max(...readings)];
 });
+const chart = Astro.url.searchParams.get('chart');
+const image = await Astro.locals.shareImage;
+const chartPreview = chart && image?.(chartImagePath(chart, '16x9'));
+const preview = chartPreview || image?.(chartImagePath('cc', '16x9'));
 ---
 
-<Layout title="Analysis · Bach Bench">
+<Layout title="Analysis · Bach Bench" poster={preview} shareChart={chartPreview && chart}>
   <SiteHeader current="analysis" />
   <main class="results-page">
     <div class="results-title">

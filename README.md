@@ -25,3 +25,18 @@ and a Cloudflare Individual Workers Editor token from repository secrets.
 The token is scoped to the existing `bach-bench-site` Worker.
 
 See [LICENSE](LICENSE) and the [third-party and brand notices](public/THIRD_PARTY_NOTICES.md).
+
+## Share images
+
+The Site job checks both the live index and the optional
+`staging/site-98/index.json` fixture index every ten minutes. A merge touching
+the drawing inputs also starts it. If either the index revision or the
+drawing fingerprint changes, it renders that field's cards and chart PNGs
+using the Site's existing drawing code. The job runs from main and publishes
+under `derived/images/live/` or `derived/images/staging/site-98/` only.
+The URLs use stable object keys with a 60-second cache, so repeated builds
+replace derived images without accumulating a copy for every revision.
+On the preview, add `?vault=staging-images` to open a page against the fixture.
+The job writes the manifest last. The Site matches it to the current Vault
+revision and falls back to the poster or a locally drawn card when needed.
+Chart PNG and SVG downloads still export the chart's current on-screen view.

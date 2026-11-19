@@ -2,10 +2,13 @@
 import Layout from '../../layouts/Layout.astro';
 import Stage from '../../components/Stage.astro';
 
+import { pieceImagePath } from '../../lib/share-images';
+
 const piece = Astro.locals.piece!;
+const shareImage = (await Astro.locals.shareImage)?.(pieceImagePath(piece.slug));
 const initial = Astro.locals.vault.pieces.indexOf(piece);
 ---
 
-<Layout title={`${piece.title} · ${piece.modelName}`} poster={piece.posterUrl}>
+<Layout title={`${piece.title} · ${piece.modelName}`} poster={shareImage ?? piece.posterUrl}>
   <Stage initial={initial} />
 </Layout>

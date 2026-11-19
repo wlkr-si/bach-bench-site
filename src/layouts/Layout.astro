@@ -4,8 +4,10 @@ import '@fontsource-variable/geist-mono';
 import '../styles/global.css';
 import { publicAddress } from '../lib/share';
 
-const { title = 'Bach Bench', poster = Astro.locals.vault?.pieces[0]?.posterUrl } = Astro.props;
+const { title = 'Bach Bench', shareChart, poster = Astro.locals.vault?.pieces[0]?.posterUrl } = Astro.props;
 const address = publicAddress(Astro.url.pathname);
+const shareAddress = new URL(address);
+if (shareChart) shareAddress.searchParams.set('chart', shareChart);
 const image = poster && publicAddress(poster);
 ---
 
@@ -27,7 +29,7 @@ const image = poster && publicAddress(poster);
     <link rel="canonical" href={address} />
     <meta property="og:type" content="website" />
     <meta property="og:site_name" content="Bach Bench" />
-    <meta property="og:url" content={address} />
+    <meta property="og:url" content={shareAddress.href} />
     <meta property="og:title" content={title} />
     <meta name="twitter:card" content="summary_large_image" />
     <meta name="twitter:title" content={title} />
