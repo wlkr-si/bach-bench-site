@@ -10,7 +10,7 @@ public Vault keeps the published Pieces and provides an index. The Site
 presents that catalogue. With the Vault connected, adding a Piece will
 update the catalogue without a Site deployment.
 
-The preview currently shows the Site with an empty catalogue. Use Node 24
+The preview currently shows empty Listen, Gallery and Analysis pages until the Vault is connected. Use Node 24
 or later, run `npm ci`, then `npm run dev` to work locally. Run
 `npm run check` before opening a pull request. GitHub Actions checks pull
 requests and deploys merges to the Cloudflare preview. The deploy reads
