@@ -14,7 +14,12 @@ const designs = [
   'src/styles/global.css', 'src/styles/analytics.css', 'src/pages/p/[slug]/analytics.astro',
   'astro.config.mjs', 'src/pages/analysis.astro', 'src/pages/index.astro', 'src/layouts/Layout.astro',
 ];
-const design = createHash('sha256').update(execFileSync('git', ['ls-files', '-s', '--', ...designs])).digest('hex');
+function drawingFingerprint(revision) {
+  const files = execFileSync('git', ['ls-tree', '-r', revision, '--', ...designs]);
+  return createHash('sha256').update(files).digest('hex');
+}
+
+const design = drawingFingerprint('HEAD');
 const revisionPattern = /^[a-f0-9]{64}$/;
 const cache = 'public, max-age=60, must-revalidate';
 const bucket = 'bach-bench-vault';
@@ -144,11 +149,9 @@ async function publish(targets) {
       endpoint.href !== endpoint.origin + '/' || !process.env.AWS_ACCESS_KEY_ID || !process.env.AWS_SECRET_ACCESS_KEY) {
     throw new Error('Missing or invalid R2 upload configuration');
   }
-  const latest = execFileSync('gh', ['api', 'repos/wlkr-si/bach-bench-site/git/ref/heads/main', '--jq', '.object.sha'], {
-    encoding: 'utf8',
-  }).trim();
-  if (latest !== process.env.GITHUB_SHA) {
-    console.log('A newer main commit will be picked up by the next poll');
+  execFileSync('git', ['fetch', '--depth=1', 'origin', 'main'], { stdio: 'inherit' });
+  if (drawingFingerprint('FETCH_HEAD') !== design) {
+    console.log('The drawing inputs changed on main; leaving publication for the next run');
     return;
   }
 
