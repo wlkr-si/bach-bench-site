@@ -12,7 +12,7 @@ const designs = [
   'src/lib/vault.ts', 'src/lib/scores.ts', 'src/lib/model-name.mjs',
   'src/components/ResultsCharts.astro', 'src/styles/chart-fonts.css', 'src/styles/charts.css',
   'src/styles/global.css', 'src/styles/analytics.css', 'src/pages/p/[slug]/analytics.astro',
-  'src/pages/analysis.astro', 'src/pages/index.astro', 'src/layouts/Layout.astro',
+  'astro.config.mjs', 'src/pages/analysis.astro', 'src/pages/index.astro', 'src/layouts/Layout.astro',
 ];
 const design = createHash('sha256').update(execFileSync('git', ['ls-files', '-s', '--', ...designs])).digest('hex');
 const revisionPattern = /^[a-f0-9]{64}$/;
@@ -102,6 +102,7 @@ async function render(targets) {
           await visit(route, async page => {
             const data = JSON.parse(await page.locator('#bach-data').textContent());
             if (data.revision !== revision) throw new Error('Index changed during chart generation');
+            await page.locator('#charts').scrollIntoViewIfNeeded();
             await page.waitForSelector('html[data-ready="1"]', { state: 'attached', timeout: 60_000 });
             const images = await page.evaluate(async () => {
               const outputs = [];
