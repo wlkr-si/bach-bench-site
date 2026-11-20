@@ -3,7 +3,9 @@ import ResultsCharts from '../components/ResultsCharts.astro';
 import { formatCost } from '../lib/scores';
 import Layout from '../layouts/Layout.astro';
 import SiteHeader from '../components/SiteHeader.astro';
-import { pieceValues, metrics, format } from '../lib/results';
+import { pieceValues, metrics, format, median, formatUsd, formatDuration } from '../lib/results';
+import { labIdentity } from '../lib/lab-identity.mjs';
+import { scoreMetrics } from '../lib/scores';
 import '../styles/analytics.css';
 import { chartImagePath } from '../lib/share-images';
 
@@ -15,6 +17,29 @@ const ranges = metrics.map(({ key }) => {
       (value): value is number => value != null && Number.isFinite(value),
     );
   return [Math.min(...readings), Math.max(...readings)];
+});
+// The field in numbers, read from the index the page already has.
+const known = (read: (piece: (typeof results)[number]) => number | null) =>
+  results.map(read).filter((value): value is number => value != null && Number.isFinite(value));
+const span = (values: number[], write: (value: number) => string) =>
+  values.length ? { middle: write(median(values)), range: `${write(Math.min(...values))} to ${write(Math.max(...values))}` } : null;
+const whole = (value: number) => Math.round(value).toLocaleString('en-US');
+const glance = [
+  { label: 'Models', value: String(results.length), note: `from ${new Set(results.map(({ lab }) => lab)).size} labs` },
+  ...[
+    ['Median cost per Piece', span(known((piece) => piece.scores.costUsd), formatUsd)] as const,
+    ['Median time to make', span(known((piece) => piece.measurements.wall), formatDuration)] as const,
+    ['Median code length', span(known((piece) => piece.measurements.lines), (value) => `${whole(value)} lines`)] as const,
+  ].flatMap(([label, reading]) => (reading ? [{ label, value: reading.middle, note: reading.range.replaceAll(' lines to', ' to') }] : [])),
+];
+// Where every model sits on each score, from 0 to 100.
+const spreads = scoreMetrics.slice(0, 3).map(({ key, label }) => {
+  const marks = results.flatMap((piece) => {
+    const value = piece.scores[key];
+    return value == null ? [] : [{ piece, value, color: labIdentity(piece.lab ?? '').color }];
+  });
+  const values = marks.map(({ value }) => value);
+  return { label, marks, note: values.length ? `median ${whole(median(values))} · ${whole(Math.min(...values))}–${whole(Math.max(...values))}` : '' };
 });
 const chart = Astro.url.searchParams.get('chart');
 const image = await Astro.locals.shareImage;
@@ -29,7 +54,37 @@ const preview = chartPreview || image?.(chartImagePath('cc', '16x9'));
       <h1>Analysis</h1><a href="/method">Method</a>
     </div>
     {results.length === 0 ? <p>No measurements available.</p> : <>
+    <section class="glance" aria-label="The field in numbers">
+      {glance.map(({ label, value, note }) => (
+        <div class="cf tile">
+          <p class="tile-label">{label}</p>
+          <p class="tile-value">{value}</p>
+          <p class="tile-note">{note}</p>
+        </div>
+      ))}
+    </section>
+    <section class="cf spread" aria-label="Where every model sits on each score">
+      {spreads.map(({ label, marks, note }) => (
+        <div class="spread-row">
+          <span class="spread-label">{label}</span>
+          <div class="spread-line">
+            {marks.map(({ piece, value, color }) => (
+              <a
+                class="spread-mark"
+                href={`/p/${piece.slug}/`}
+                data-mark={piece.slug}
+                style={`left:${value.toFixed(2)}%;--lab:${color}`}
+                aria-label={`${piece.modelName}: ${label} ${whole(value)}`}
+              ><span>{piece.modelName} <b>{whole(value)}</b></span></a>
+            ))}
+          </div>
+          <span class="spread-note">{note}</span>
+        </div>
+      ))}
+    </section>
     <ResultsCharts />
+    <section class="q">
+    <h2 class="q-title">Every measurement</h2>
     <section class="cf results-table" aria-labelledby="t-measurements">
       <div class="cf-head">
         <h2 class="cf-title" id="t-measurements">Measurements</h2>
@@ -135,11 +190,23 @@ const preview = chartPreview || image?.(chartImagePath('cc', '16x9'));
         }
       </div>
     </section>
+    </section>
     </>}
   </main>
 </Layout>
 
 <script>
+  // Pointing at a model on one score line picks it out on all three.
+  const spread = document.querySelector<HTMLElement>('.spread');
+  const pick = (slug?: string) => {
+    spread?.classList.toggle('picked', Boolean(slug));
+    spread?.querySelectorAll<HTMLElement>('.spread-mark').forEach((mark) => mark.classList.toggle('on', mark.dataset.mark === slug));
+  };
+  spread?.addEventListener('pointerover', (event) => pick((event.target as Element).closest<HTMLElement>('.spread-mark')?.dataset.mark));
+  spread?.addEventListener('pointerleave', () => pick());
+  spread?.addEventListener('focusin', (event) => pick((event.target as Element).closest<HTMLElement>('.spread-mark')?.dataset.mark));
+  spread?.addEventListener('focusout', () => pick());
+
   const picker = document.querySelector<HTMLSelectElement>('#metric');
   const tables = document.querySelectorAll<HTMLTableElement>('[data-result]');
   const notes = document.querySelectorAll<HTMLElement>('[data-say]');

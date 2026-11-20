@@ -1,5 +1,7 @@
 import { readDetail } from './vault';
 import chartFonts from '../styles/chart-fonts.css?raw';
+import { labIdentity, slug } from './lab-identity.mjs';
+import { ANALYSIS_CHARTS } from './analysis-charts.mjs';
 import { HOME_COLUMNS, HOME_NAME_BAND, HOME_SAY, homeCaption } from './home-charts.mjs';
 import { provenance } from './results';
 
@@ -37,21 +39,8 @@ const reduceMotion = matchMedia('(prefers-reduced-motion: reduce)');
    because shape always rides along) × filled shapes for slots 0–7 and
    outlined/new shapes for 8–15, with the hue rotated by 3 so no two slots
    share both shape and colour. A lab keeps its slot forever; new labs append. */
-const LAB_SLOTS = ['Anthropic','OpenAI','xAI','Cursor','Google','Meta','DeepSeek','Mistral','Alibaba','Moonshot','Zhipu','Amazon','NVIDIA','Tencent','Microsoft','Reka','MiniMax'];
-const HUES = ['#e36b40','#337aef','#bb4cb5','#0bad87','#b88410','#8a7cf0','#e0567a','#4fa83d'];
-const SHAPES = ['sun','circle','cross','square','triangle','diamond','star','hexagon','triangleDown','plus','ring','squareO','diamondO','triangleO','hexagonO','starO','plusO'];
-const slug = s => s.toLowerCase().replace(/[^a-z0-9]+/g, '');
-const IDS = new Map();
 /* Labs named in legends. Others still draw with their own shape and colour. */
 const LEGEND_LABS = ['Anthropic','OpenAI','xAI','Google'];
-function labIdentity(lab){
-  if (IDS.has(lab)) return IDS.get(lab);
-  let i = LAB_SLOTS.indexOf(lab);
-  if (i < 0){ LAB_SLOTS.push(lab); i = LAB_SLOTS.length - 1; }
-  const s = i % SHAPES.length;
-  const L = { name: lab, slug: slug(lab), slot: i, color: HUES[(s + (s >= 8 ? 3 : 0)) % 8], shape: SHAPES[s] };
-  IDS.set(lab, L); return L;
-}
 
 /* ============ 3. DATA ============ */
 const EFFORTS = ['minimal','low','medium','high','xhigh','max'];
@@ -611,6 +600,7 @@ const SCORE_Y = ['balance','complexity','sync','uniqueness','music','picture'];
 const quadOn = c => c.quad === 'on' || (c.quad === 'auto' && c.y === 'balance' && c.x === 'cost');
 const CHARTS = [
   { key:'cc', render:renderScatter, ref:'frontier', refName:'Frontier',
+    question: c => `Does ${MORE[c.x] || 'a higher ' + M[c.x].label} come with a higher ${M[c.y].label}?`,
     controls:['y','x','scale','quad','ref'], xOptions:['cost','time','thinking','output'], yOptions:SCORE_Y,
     defaults:{ x:'cost', y:'balance', scale:'log', quad:'auto', ref:'off' },
     cfg: c => ({ x:c.x, y:c.y, xLog:c.scale === 'log', yLog:false, ref:c.ref, quad: quadOn(c) && quadAvailable(M[c.x], M[c.y]) ? 'on' : 'off' }),
@@ -625,13 +615,14 @@ const CHARTS = [
   { key:'sync', render:renderColumns, value:'sync', controls:[], defaults:{}, height: w => w < 560 ? 168 : 240,
     title: () => 'Sync', caption: () => M.sync.say,
     tip: p => [['Sync', fmtScore(p.sync)], ['Event', fmtScore(p.syncEvent)], ['Continuous', fmtScore(p.syncCont)], ['Lag', p.lagMs != null ? p.lagMs + ' ms' : 'n/a']] },
-  { key:'to', render:renderScatter, ref:'diagonal', refName:'1:1',
+  { key:'to', render:renderScatter, ref:'diagonal', refName:'1:1', needsDetail:true,
     controls:['scale','ref'], defaults:{ scale:'log', ref:'off' },
     cfg: c => ({ x:'output', y:'thinking', xLog:c.scale === 'log', yLog:c.scale === 'log', ref:c.ref }),
     title: () => 'Thinking vs. output', caption: () => SAY_TOKENS,
     height: w => w < 560 ? 400 : Math.round(Math.min(520, Math.max(380, w * .42))),
     tip: p => [['Thinking', fmtInt(p.thinkingTokens)], ['Output', fmtInt(p.outputTokens)], ['Lines of code', fmtInt(p.linesOfCode)]] },
-  { key:'ct', render:renderScatter, controls:['y'], yOptions:SCORE_Y, defaults:{ y:'complexity' },
+  { key:'ct', render:renderScatter, controls:['y'], yOptions:SCORE_Y, defaults:{ y:'complexity' }, needsDetail:true,
+    question: c => `Do newer models score higher on ${M[c.y].label}?`,
     cfg: c => ({ x:'release', y:c.y, xLog:false, yLog:false }),
     title: c => `${M[c.y].label} over time`, caption: c => `${M.release.say} ${M[c.y].say}`,
     height: w => w < 560 ? 380 : Math.round(Math.min(480, Math.max(360, w * .38))),
@@ -646,6 +637,9 @@ const CHARTS = [
       : k === 'sync' ? [['Sync', fmtScore(p.sync)], ['Event', fmtScore(p.syncEvent)], ['Continuous', fmtScore(p.syncCont)]]
       : [['Uniqueness', fmtScore(p.uniqueness)]] })),
 ];
+
+/* How the first chart's question names more of its horizontal measure. */
+const MORE = { cost:'a higher cost', time:'a longer time to make', thinking:'more thinking tokens', output:'more output tokens' };
 
 /* ============ 12. STATE & ADDRESS ============
    One state object; every control writes it, then commit() re-renders all
@@ -881,6 +875,8 @@ class ChartView {
     if (!w) return;
     this.sec.querySelector('.cf-title span').textContent = def.title(c);
     this.sec.querySelector('.cf-cap').textContent = def.caption(c);
+    if (this.heading) this.heading.textContent = def.question ? def.question(c) : ANALYSIS_CHARTS.find(a => a.key === def.key).question;
+    if (def.needsDetail && !detailsRead) return;
     this.ctls.forEach(n => n.sync()); this.legend.sync();
     const scene = this.scene = def.render(this.ctx(SIZE.page, w, def.height ? def.height(w) : 0));
     this.svg.setAttribute('width', w); this.svg.setAttribute('height', scene.h); this.svg.setAttribute('viewBox', `0 0 ${w} ${scene.h}`);
@@ -1047,6 +1043,7 @@ window.__bach = { exportDataURL: async (key, fmt) => (await exportCanvas(views.f
 
 /* ============ 16. BOOT ============ */
 let revision = '';
+let detailsRead = false;
 async function readPieceDetail({ id, detailUrl }){
   const { scores, measurements } = await readDetail({ slug: id, detailUrl }, revision);
   const note = document.querySelector(`[data-wall-source="${CSS.escape(id)}"]`);
@@ -1075,30 +1072,42 @@ async function readPieceDetail({ id, detailUrl }){
   revision = raw.revision;
   const unavailable = document.getElementById('chart-unavailable');
   const root = document.getElementById('charts'), home = root.dataset.set === 'home';
-  const detailById = new Map();
-  // The home charts plot values the page already carries, so they draw at once.
-  while (!home && detailById.size < raw.pieces.length) {
-    // Fetch independently of the Worker and keep each successful read on retry.
-    const pending = raw.pieces.filter(({ id }) => !detailById.has(id));
-    for (let i = 0; i < pending.length; i += 8) {
-      await Promise.allSettled(pending.slice(i, i + 8).map(async (piece) => {
-        detailById.set(piece.id, { ...await readPieceDetail(piece), detailed: 'read' });
-      }));
-    }
-    if (detailById.size < raw.pieces.length) {
-      unavailable.hidden = false;
-      await new Promise(resolve => setTimeout(resolve, 15_000));
-    }
-  }
-  unavailable.hidden = true;
-  field = prepare({ ...raw, pieces: raw.pieces.map(p => ({ ...p, ...detailById.get(p.id) })) });
+  // Every page draws at once from the values it carries.
+  detailsRead = home;
+  field = prepare(raw);
   readHash();
   toolbar.mount();
   views = CHARTS.filter(d => !!d.home === home).map(d => new ChartView(d));
-  // The cards take the place of the ones that held their space while loading.
-  root.replaceChildren(...views.map(v => v.sec));
+  if (home) root.replaceChildren(...views.map(v => v.sec)); // the cards take the place of the ones that held their space
+  else for (const v of views){
+    // On Analysis each chart sits under the question it answers.
+    const slot = root.querySelector(`[data-chart-slot="${v.def.key}"]`);
+    v.heading = slot.querySelector('.q-title');
+    slot.append(v.sec);
+  }
   commit();
   const linked = new URLSearchParams(location.hash.slice(1)).get('chart') || new URLSearchParams(location.search).get('chart');
   if (linked) document.getElementById('chart-' + linked)?.scrollIntoView({ block: 'start' });
+  if (!home){
+    // The charts and tooltip rows that need a Piece's detail fill in when every detail is read.
+    const read = new Set();
+    while (read.size < field.length){
+      // Fetch independently of the Worker and keep each successful read on retry.
+      const pending = field.filter(p => !read.has(p.id));
+      for (let i = 0; i < pending.length; i += 8){
+        await Promise.allSettled(pending.slice(i, i + 8).map(async p => {
+          Object.assign(p, await readPieceDetail(p), { detailed: 'read' });
+          read.add(p.id);
+        }));
+      }
+      if (read.size < field.length){
+        unavailable.hidden = false;
+        await new Promise(resolve => setTimeout(resolve, 15_000));
+      }
+    }
+    unavailable.hidden = true;
+    detailsRead = true;
+    commit();
+  }
   document.documentElement.dataset.ready = '1';
 })();
