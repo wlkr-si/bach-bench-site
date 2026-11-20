@@ -70,9 +70,9 @@ async function readVault<T>(url: string): Promise<T> {
   return response.json();
 }
 
-export async function readIndex(staging: boolean, imageStaging = false) {
+export async function readIndex(staging: string | undefined, imageStaging = false) {
   const index = await readVault<VaultIndex>(
-    vaultOrigin + (imageStaging ? imageSources.staging.index : staging ? '/staging/site-96/index.json' : imageSources.live.index),
+    vaultOrigin + (imageStaging ? imageSources.staging.index : staging ? `/staging/${staging}/index.json` : imageSources.live.index),
   );
   if (index.schemaVersion !== 1 || !/^[a-f0-9]{64}$/.test(index.revision) ||
       !Array.isArray(index.pieces) || !index.titleWordCounts) {
