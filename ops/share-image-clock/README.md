@@ -9,9 +9,8 @@ drawing inputs still start it directly.
 The private organization GitHub App is installed only on bach-bench-site.
 Its only writable permission is Actions. The clock requests a short-lived
 installation token and never needs the R2 upload credential. Its private
-key is backed up in My Passwords as GitHub App key (Bach Bench share image
-clock). On 0o10 it belongs in the clock's private config directory with
-mode 0600. The service loads it with systemd's LoadCredential. Keep the
+key is held in the studio's private credential store. On 0o10 it belongs in
+the clock's private config directory with mode 0600. The service loads it with systemd's LoadCredential. Keep the
 application and installation IDs in app.env in the same directory.
 
 Install the service and timer under ~/.config/systemd/user and the Python
