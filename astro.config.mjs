@@ -8,7 +8,6 @@ export default defineConfig({
   build: { inlineStylesheets: 'never' },
   adapter: cloudflare({ imageService: 'passthrough' }),
   session: false,
-  redirects: { '/results': '/analysis' },
   integrations: [react()],
   vite: { plugins: [tailwindcss()] },
 });
