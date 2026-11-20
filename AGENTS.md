@@ -13,6 +13,9 @@ Piece. Show the recorded picture and sound at full quality.
 
 Keep the navigation minimal. Use quiet text buttons and restrained links.
 Avoid pill buttons, underlined back links, and lines under section headings.
+On Listen, the player is the exception: a round white play button carrying
+the rainbow glow, icon buttons for the other controls, and a scrubber. Keep
+every control at least 44 px and inside the first screen on phones.
 Keep existing table row lines. Use the white Listen button with its rainbow
 glow once per screen. Keep Anthropic, OpenAI, xAI and Google on one line in
 chart exports. Place the lab legend inside the chart, highlight that lab's

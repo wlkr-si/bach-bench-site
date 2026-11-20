@@ -1,39 +1,149 @@
 ---
-import { fastClipDownlink, vaultMediaAllowsCors } from '../lib/clip-buffer';
-import SiteHeader from './SiteHeader.astro';
-import StageSlide from './StageSlide.astro';
+import { vaultMediaAllowsCors } from '../lib/clip-buffer';
 import { pieceAddress } from '../lib/share';
+import Icon from './Icon.astro';
+import SiteHeader from './SiteHeader.astro';
 
 const { initial = 0 } = Astro.props;
 const { pieces } = Astro.locals.vault;
 const first = pieces[initial];
-const total = pieces.length;
 const cors = vaultMediaAllowsCors(Astro.url.origin);
-const placeholder = { slug: '', title: '', modelName: '', clipUrl: '', posterUrl: '' };
-const slides = pieces.map(({ title, modelName, slug, clipUrl, posterUrl }) => ({
+const count = (number: number) => String(number).padStart(2, '0');
+const catalogue = pieces.map(({ title, modelName, slug, clipUrl, posterUrl }) => ({
   title, modelName, slug, clipUrl, posterUrl, address: pieceAddress(slug),
 }));
 ---
 
 <div class="st-layout">
   <SiteHeader current="stage" />
-  <main class="st" data-stage data-initial={initial} data-cors={cors ? 'true' : undefined}>
-    {first ? <StageSlide piece={first} index={initial} total={total} cors={cors} first /> :
-      <p class="st-empty">No Pieces available.</p>}
-    {first && <script define:vars={{ fastClipDownlink }}>
-      const video = document.currentScript.closest('[data-stage]').querySelector('video');
-      const connection = navigator.connection;
-      if (connection && !connection.saveData && connection.downlink >= fastClipDownlink)
-        video.src = video.dataset.clip;
-    </script>}
+  <main class="st" data-stage data-index={initial} data-cors={cors ? 'true' : undefined}>
+    {
+      first ? (
+        <div class="st-player">
+          <div class="st-artwrap">
+            <div class="st-art">
+              <img
+                class="st-poster"
+                src={first.posterUrl}
+                crossorigin={cors ? 'anonymous' : undefined}
+                fetchpriority="high"
+                width="1080"
+                height="1350"
+                alt=""
+                draggable="false"
+              />
+              <video src={first.clipUrl} preload="metadata" playsinline aria-hidden="true" />
+            </div>
+          </div>
+          <div class="st-panel">
+            <div class="st-titlebox">
+              <h2 class="st-title">{first.title}</h2>
+            </div>
+            <div class="st-line">
+              <p class="st-model">{first.modelName}</p>
+              <div class="st-side">
+                <button
+                  class="st-ib"
+                  type="button"
+                  data-copy-address={pieceAddress(first.slug)}
+                  aria-label={`Copy link to ${first.title}`}
+                >
+                  <span class="st-swap">
+                    <Icon name="link" size={20} />
+                    <i class="st-ring" />
+                    <Icon name="check" size={20} />
+                  </span>
+                </button>
+                <a
+                  class="st-ib"
+                  data-save-clip
+                  href={first.clipUrl}
+                  download={`bach-bench-${first.slug}.mp4`}
+                  aria-label={`Download ${first.title}`}
+                >
+                  <span class="st-swap">
+                    <Icon name="download" size={20} />
+                    <i class="st-ring" />
+                    <Icon name="check" size={20} />
+                  </span>
+                </a>
+                <span role="status" class="sr-only" />
+              </div>
+            </div>
+            <div
+              class="st-scrub"
+              role="slider"
+              tabindex="0"
+              aria-label="Position"
+              aria-valuemin="0"
+              aria-valuemax="15"
+              aria-valuenow="0"
+              aria-valuetext="0:00"
+            >
+              <div class="st-track"><i class="st-fill" /></div>
+              <div class="st-thumbwrap"><i class="st-thumb" /></div>
+            </div>
+            <div class="st-times">
+              <span data-now>0:00</span>
+              <span class="st-count">
+                <span data-count>{count(initial + 1)} / {count(pieces.length)}</span>
+                <span class="st-problem">Couldn’t play this Piece</span>
+              </span>
+              <span data-length>0:15</span>
+            </div>
+            <div class="st-transport">
+              <button
+                class="st-ib st-repeat"
+                type="button"
+                data-repeat
+                aria-pressed="false"
+                aria-label="Repeat this Piece"
+              >
+                <Icon name="repeat" size={20} />
+              </button>
+              <button class="st-ib" type="button" data-step="-1" aria-label="Previous Piece">
+                <Icon name="previous" size={26} />
+              </button>
+              <span class="st-playwrap">
+                <button class="st-play" type="button" data-play disabled aria-label={`Play ${first.title}`}>
+                  <span class="st-glyph">
+                    <Icon name="play-solid" size={28} />
+                    <Icon name="pause-solid" size={28} />
+                    <i class="st-ring" />
+                  </span>
+                </button>
+              </span>
+              <button
+                class="st-ib"
+                type="button"
+                data-step="1"
+                aria-label="Next Piece"
+                disabled={initial === pieces.length - 1}
+              >
+                <Icon name="next" size={26} />
+              </button>
+              <a class="st-ib" data-stats href={`/p/${first.slug}/analytics/`} aria-label={`Stats for ${first.title}`}>
+                <Icon name="analytics" size={20} />
+              </a>
+            </div>
+          </div>
+        </div>
+      ) : (
+        <p class="st-empty">No Pieces available.</p>
+      )
+    }
   </main>
 </div>
-{first && <>
-  <template id="stage-slide">
-    <StageSlide piece={placeholder} index={-1} total={total} cors={cors} />
-  </template>
-  <script is:inline type="application/json" id="stage-catalogue" set:html={JSON.stringify(slides).replace(/</g, '\\u003c')} />
-</>}
+{
+  first && (
+    <script
+      is:inline
+      type="application/json"
+      id="stage-catalogue"
+      set:html={JSON.stringify(catalogue).replace(/</g, '\\u003c')}
+    />
+  )
+}
 <script>
   import '../lib/stage';
 </script>

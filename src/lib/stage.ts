@@ -1,4 +1,5 @@
-import { allowPlayback, canStreamClip, downloadClip } from './clip-buffer';
+import './clip-actions';
+import { downloadClip } from './clip-buffer';
 
 type PieceLink = {
   slug: string;
@@ -8,131 +9,175 @@ type PieceLink = {
   clipUrl: string;
   address: string;
 };
+type State = 'paused' | 'loading' | 'playing' | 'blocked' | 'error';
+type Move = 'button' | 'swipe' | 'auto';
 
 const root = document.querySelector<HTMLElement>('[data-stage]')!;
-const template = document.querySelector<HTMLTemplateElement>('#stage-slide');
 const entries: PieceLink[] = JSON.parse(document.querySelector('#stage-catalogue')?.textContent ?? '[]');
 
-if (template && entries.length) mountStage(template);
+if (entries.length) mountStage();
 
-function mountStage(template: HTMLTemplateElement) {
-  const reducedMotion = matchMedia('(prefers-reduced-motion: reduce)');
-  const pageScroll = matchMedia('(max-height: 500px), (max-width: 600px) and (max-height: 580px)');
-  const count = (number: number) => String(number).padStart(2, '0');
-  let current = Number(root.dataset.initial);
-  const initial = current;
-  let flowing = false;
+function mountStage() {
+  const find = <T extends HTMLElement>(selector: string) => root.querySelector<T>(selector)!;
+  const layout = root.parentElement!;
+  // One media element for every Piece: Safari grants playback to the element that was tapped.
+  const video = find<HTMLVideoElement>('video');
+  const wrap = find('.st-artwrap');
+  const art = find('.st-art');
+  const poster = find<HTMLImageElement>('.st-poster');
+  const title = find('.st-title');
+  const model = find('.st-model');
+  const count = find('[data-count]');
+  const now = find('[data-now]');
+  const length = find('[data-length]');
+  const scrub = find('.st-scrub');
+  const fill = find('.st-fill');
+  const thumb = find('.st-thumbwrap');
+  const play = find<HTMLButtonElement>('[data-play]');
+  const next = find<HTMLButtonElement>('[data-step="1"]');
+  const previous = find<HTMLButtonElement>('[data-step="-1"]');
+  const again = find<HTMLButtonElement>('[data-repeat]');
+  const copy = find<HTMLButtonElement>('[data-copy-address]');
+  const save = find<HTMLAnchorElement>('[data-save-clip]');
+  const stats = find<HTMLAnchorElement>('[data-stats]');
+
+  const calm = matchMedia('(prefers-reduced-motion: reduce)');
+  const cors = Boolean(root.dataset.cors);
+  const connection = (navigator as Navigator & { connection?: { saveData?: boolean } }).connection;
+  const two = (number: number) => String(number).padStart(2, '0');
+  const clock = (seconds: number) => `${Math.floor(seconds / 60)}:${two(Math.floor(seconds % 60))}`;
+
+  let index = Number(root.dataset.index);
+  let want = false; // the listener asked for sound
+  let repeat = false;
+  let attempt = 0; // outdates callbacks that belong to an earlier Piece or tap
+  let moving = false; // a Piece is sliding away
+  let scrubbing = false;
+  let shown = -1;
   let frame = 0;
-  let playback = 0;
-  let unlocked = false;
+  let waitTimer = 0;
   let objectUrl: string | undefined;
 
-  const slides = entries.map((piece, index) => {
-    const section = index === initial
-      ? root.querySelector<HTMLElement>('.st-slide')!
-      : template.content.firstElementChild!.cloneNode(true) as HTMLElement;
-    const toggle = section.querySelector<HTMLButtonElement>('[data-play]')!;
-    const poster = section.querySelector<HTMLImageElement>('.st-poster')!;
+  /* ---------- What is on screen ---------- */
 
-    if (index !== initial) {
-      section.dataset.index = String(index);
-      section.setAttribute('aria-label', piece.title);
-      section.querySelector('.st-model')!.textContent = piece.modelName;
-      section.querySelector('.st-title')!.textContent = piece.title;
-      section.querySelector('.st-count')!.textContent = `${count(index + 1)} / ${count(entries.length)}`;
-      toggle.setAttribute('aria-label', `Play ${piece.title}`);
-      section.querySelector<HTMLButtonElement>('[data-step="-1"]')!.disabled = index === 0;
-      section.querySelector<HTMLButtonElement>('[data-step="1"]')!.disabled = index === entries.length - 1;
-      const download = section.querySelector<HTMLAnchorElement>('[data-save-clip]')!;
-      download.href = piece.clipUrl;
-      download.download = `bach-bench-${piece.slug}.mp4`;
-      download.setAttribute('aria-label', `Download ${piece.title}`);
-      const copy = section.querySelector<HTMLButtonElement>('[data-copy-address]')!;
-      copy.dataset.copyAddress = piece.address;
-      copy.setAttribute('aria-label', `Copy link to ${piece.title}`);
-      const stats = section.querySelector<HTMLAnchorElement>('.st-more a:last-of-type')!;
-      stats.href = `/p/${piece.slug}/analytics`;
-      stats.setAttribute('aria-label', `Stats for ${piece.title}`);
-    }
-
-    return {
-      section, piece, toggle, poster,
-      media: section.querySelector<HTMLElement>('.st-media')!,
-      progress: section.querySelector<HTMLElement>('.st-prog i')!,
-      time: 0,
+  function setState(state: State) {
+    clearTimeout(waitTimer);
+    const apply = () => {
+      root.dataset.state = state;
+      const verb = { playing: 'Pause', paused: 'Play', loading: 'Stop loading', blocked: 'Play', error: 'Retry' }[state];
+      play.setAttribute('aria-label', `${verb} ${entries[index].title}`);
     };
-  });
-
-  const before = document.createDocumentFragment();
-  const after = document.createDocumentFragment();
-  slides.forEach(({ section }, index) => {
-    if (index < initial) before.append(section);
-    else if (index > initial) after.append(section);
-  });
-  root.prepend(before);
-  root.append(after);
-
-  function setState(index: number, state: 'playing' | 'paused' | 'loading' | 'blocked' | 'error') {
-    const { section, toggle, piece } = slides[index];
-    section.dataset.state = state;
-    const verb = { playing: 'Pause', paused: 'Play', loading: 'Cancel loading', blocked: 'Play', error: 'Retry' }[state];
-    toggle.setAttribute('aria-label', `${verb} ${piece.title}`);
+    // A wait shorter than a fifth of a second never shows as loading.
+    if (state === 'loading' && root.dataset.state !== 'loading') waitTimer = window.setTimeout(apply, 200);
+    else apply();
   }
 
-  function showPoster(index: number) {
-    const slide = slides[index];
-    if (slide && !slide.poster.hasAttribute('src')) slide.poster.src = slide.piece.posterUrl;
+  const duration = () => (Number.isFinite(video.duration) && video.duration > 0 ? video.duration : 15);
+
+  function paint(position = Math.min(duration(), video.currentTime)) {
+    const total = duration();
+    const part = position / total;
+    fill.style.transform = `scaleX(${part})`;
+    thumb.style.transform = `translateX(${part * 100}%)`;
+    const second = Math.floor(position);
+    if (second === shown) return;
+    shown = second;
+    now.textContent = clock(position);
+    length.textContent = clock(total);
+    scrub.setAttribute('aria-valuemax', String(Math.round(total)));
+    scrub.setAttribute('aria-valuenow', String(second));
+    scrub.setAttribute('aria-valuetext', `${clock(position)} of ${clock(total)}`);
   }
 
-  const posters = new IntersectionObserver((observed) => {
-    for (const { isIntersecting, target } of observed) {
-      if (!isIntersecting) continue;
-      showPoster(Number((target as HTMLElement).dataset.index));
-      posters.unobserve(target);
-    }
-  }, { rootMargin: '20% 0px' });
+  // The line follows every frame only while sound is moving.
+  function follow() {
+    cancelAnimationFrame(frame);
+    const step = () => {
+      if (!scrubbing) paint();
+      if (!video.paused) frame = requestAnimationFrame(step);
+    };
+    step();
+  }
 
-  for (const { section, poster } of slides) {
-    if (root.dataset.cors) {
-      const tint = () => {
-        const canvas = document.createElement('canvas');
-        canvas.width = 32;
-        canvas.height = 40;
-        const context = canvas.getContext('2d');
-        if (!context || !poster.naturalWidth) return;
-        context.drawImage(poster, 0, 0, 32, 40);
-        const { data } = context.getImageData(0, 0, 32, 40);
-        const sum = [0, 0, 0];
-        let samples = 0;
-        for (let y = 0; y < 40; y++) {
-          for (let x = 0; x < 32; x++) {
-            if (x > 0 && x < 31 && y > 0 && y < 39) continue;
-            for (let channel = 0; channel < 3; channel++)
-              sum[channel] += data[(y * 32 + x) * 4 + channel];
-            samples++;
-          }
+  const tints: (string | undefined)[] = [];
+  function tint() {
+    const at = entries.findIndex(({ posterUrl }) => posterUrl === poster.currentSrc);
+    if (!cors || at === -1 || !poster.naturalWidth) return;
+    if (!tints[at]) {
+      const canvas = document.createElement('canvas');
+      canvas.width = 32;
+      canvas.height = 40;
+      const context = canvas.getContext('2d');
+      if (!context) return;
+      context.drawImage(poster, 0, 0, 32, 40);
+      const { data } = context.getImageData(0, 0, 32, 40);
+      const sum = [0, 0, 0];
+      let samples = 0;
+      for (let y = 0; y < 40; y++) {
+        for (let x = 0; x < 32; x++) {
+          if (x > 0 && x < 31 && y > 0 && y < 39) continue;
+          for (let channel = 0; channel < 3; channel++) sum[channel] += data[(y * 32 + x) * 4 + channel];
+          samples++;
         }
-        section.style.setProperty('--edge', `rgb(${sum.map((value) => Math.round(value / samples)).join(' ')})`);
-      };
-      if (poster.complete && poster.naturalWidth) tint();
-      else poster.addEventListener('load', tint, { once: true });
+      }
+      tints[at] = `rgb(${sum.map((value) => Math.round(value / samples)).join(' ')})`;
     }
-    if (section !== slides[initial].section) posters.observe(section);
+    if (at === index) layout.style.setProperty('--edge', tints[at]!);
+  }
+  poster.addEventListener('load', tint);
+
+  function warmPoster(at: number) {
+    const piece = entries[at];
+    if (!piece) return;
+    const image = new Image();
+    if (cors) image.crossOrigin = 'anonymous';
+    image.src = piece.posterUrl;
   }
 
-  // Keep the same media element for Safari's per-element playback permission.
-  const video = root.querySelector<HTMLVideoElement>('video')!;
-  let stream = false;
-  let next: ReturnType<typeof download> | undefined;
-  let active: ReturnType<typeof download> | undefined;
-
-  function download(index: number) {
-    const controller = new AbortController();
-    const result = downloadClip(slides[index].piece.clipUrl, controller.signal).catch(() => undefined);
-    return { index, controller, result };
+  function show() {
+    const piece = entries[index];
+    root.dataset.index = String(index);
+    title.textContent = piece.title;
+    model.textContent = piece.modelName;
+    count.textContent = `${two(index + 1)} / ${two(entries.length)}`;
+    if (poster.getAttribute('src') !== piece.posterUrl) poster.src = piece.posterUrl;
+    if (tints[index]) layout.style.setProperty('--edge', tints[index]!);
+    copy.dataset.copyAddress = piece.address;
+    copy.setAttribute('aria-label', `Copy link to ${piece.title}`);
+    save.href = piece.clipUrl;
+    save.download = `bach-bench-${piece.slug}.mp4`;
+    save.setAttribute('aria-label', `Download ${piece.title}`);
+    stats.href = `/p/${piece.slug}/analytics/`;
+    stats.setAttribute('aria-label', `Stats for ${piece.title}`);
+    next.disabled = index === entries.length - 1;
+    warmPoster(index + 1);
+    warmPoster(index - 1);
+    if ('mediaSession' in navigator) {
+      navigator.mediaSession.metadata = new MediaMetadata({
+        title: piece.title,
+        artist: piece.modelName,
+        album: 'Bach Bench',
+        artwork: [{ src: piece.posterUrl, sizes: '1080x1350', type: 'image/jpeg' }],
+      });
+    }
   }
 
-  function bufferEnd() {
+  // Reloading, sharing the address or coming back from Stats returns to this Piece.
+  function remember() {
+    const piece = entries[index];
+    document.title = `${piece.title} · ${piece.modelName}`;
+    const slash = location.pathname.endsWith('/') ? '/' : '';
+    history.replaceState(history.state, '', `/p/${piece.slug}${slash}${location.search}`);
+  }
+
+  /* ---------- Sound ---------- */
+
+  // The next Clip, fetched whole while the current one plays, so it starts at once.
+  type Ahead = { index: number; controller: AbortController; blob?: Blob };
+  let ahead: Ahead | undefined;
+  const failed = new Set<number>();
+
+  function bufferedTo() {
     for (let i = 0; i < video.buffered.length; i++) {
       if (video.buffered.start(i) <= video.currentTime + 0.05 && video.buffered.end(i) >= video.currentTime)
         return video.buffered.end(i);
@@ -141,195 +186,276 @@ function mountStage(template: HTMLTemplateElement) {
   }
 
   function loadAhead() {
-    if (!root.dataset.cors || !flowing || video.paused || !slides[current + 1] || next) return;
-    // Let the active stream have the connection until it has time in reserve.
-    if (stream && (!Number.isFinite(video.duration) || bufferEnd() < Math.min(video.duration - 0.05, video.currentTime + 5))) return;
-    showPoster(current + 1);
-    next = download(current + 1);
+    const at = index + 1;
+    if (!cors || connection?.saveData || !want || video.paused || ahead || !entries[at] || failed.has(at)) return;
+    // The Piece being heard keeps the connection until it has time in reserve.
+    if (bufferedTo() < Math.min(duration() - 0.05, video.currentTime + 5)) return;
+    const entry: Ahead = { index: at, controller: new AbortController() };
+    ahead = entry;
+    downloadClip(entries[at].clipUrl, entry.controller.signal).then(
+      (blob) => (entry.blob = blob),
+      () => {
+        if (ahead !== entry) return;
+        ahead = undefined;
+        failed.add(at);
+      },
+    );
   }
 
-  function clearSource() {
-    video.parentElement?.removeAttribute('data-frame');
-    video.pause();
-    video.removeAttribute('src');
-    video.load();
-    if (objectUrl) URL.revokeObjectURL(objectUrl);
-    objectUrl = undefined;
+  function load() {
+    art.removeAttribute('data-frame');
+    const ready = ahead?.index === index ? ahead.blob : undefined;
+    if (!ready) ahead?.controller.abort();
+    ahead = undefined;
+    const earlier = objectUrl;
+    objectUrl = ready && URL.createObjectURL(ready);
+    // Every other Clip plays straight from the Vault as it arrives.
+    video.src = objectUrl ?? entries[index].clipUrl;
+    if (earlier) URL.revokeObjectURL(earlier);
+    paint(0);
   }
 
-  function prepare(prefetched?: typeof active) {
-    const slide = slides[current];
-    stream = !prefetched && Boolean(canStreamClip() || !root.dataset.cors);
-    // Leave the video in the document throughout navigation. Only its position changes.
-    if (video.parentElement !== slide.media) {
-      if (video.isConnected && typeof slide.media.moveBefore === 'function') slide.media.moveBefore(video, null);
-      else slide.media.append(video);
-    }
-    if (video.hasAttribute('src')) {
-      stream = true;
-    } else if (stream) {
-      video.src = slide.piece.clipUrl;
-    } else {
-      active = prefetched ?? download(current);
-    }
+  function refused(mine: number) {
+    return (error: DOMException) => {
+      if (mine !== attempt || error.name === 'AbortError') return;
+      want = false;
+      setState(error.name === 'NotAllowedError' ? 'blocked' : 'error');
+    };
   }
 
-  function begin(index: number, token: number) {
-    if (index !== current || token !== playback || !flowing) return;
-    void video.play().catch((error: DOMException) => {
-      if (token !== playback || !flowing) return;
-      flowing = false;
-      setState(index, error.name === 'NotAllowedError' ? 'blocked' : 'error');
-    });
-  }
-
-  function play(fromGesture: boolean) {
-    const index = current;
-    const token = ++playback;
-    setState(index, 'loading');
-    if (video.error) clearSource();
-    if (!video.hasAttribute('src') && !active) prepare();
-    if (video.hasAttribute('src')) {
-      if (fromGesture) unlocked = true;
-      begin(index, token);
-      return;
-    }
-    if (fromGesture && !unlocked) {
-      allowPlayback(video);
-      unlocked = true;
-    }
-    void active?.result.then((blob) => {
-      if (token !== playback || !flowing) return;
-      active = undefined;
-      if (!blob) {
-        flowing = false;
-        setState(index, 'error');
-        return;
-      }
-      stream = false;
-      objectUrl = URL.createObjectURL(blob);
-      video.src = objectUrl;
-      begin(index, token);
-    });
-  }
-
-  function select(index: number) {
-    if (current === index) return;
-    ++playback;
-    const slide = slides[current];
-    slide.time = video.ended ? 0 : video.currentTime;
-    clearSource();
-    setState(current, 'paused');
-    active?.controller.abort();
-    active = undefined;
-    const prefetched = next?.index === index ? next : undefined;
-    if (!prefetched) next?.controller.abort();
-    next = undefined;
-    current = index;
-    showPoster(index);
-    prepare(prefetched);
-    if (flowing) play(false);
-  }
-
-  function sectionTop(section: HTMLElement) {
-    return pageScroll.matches
-      ? section.offsetTop + root.getBoundingClientRect().top + window.scrollY
-      : section.offsetTop;
-  }
-
-  function go(index: number, behavior: ScrollBehavior = reducedMotion.matches ? 'instant' : 'smooth') {
-    if (!slides[index]) return;
-    (pageScroll.matches ? window : root).scrollTo({
-      top: index === 0 && pageScroll.matches ? 0 : sectionTop(slides[index].section),
-      behavior,
-    });
+  function start() {
+    const mine = ++attempt;
+    want = true;
+    if (video.error) load();
+    if (video.ended) video.currentTime = 0;
+    setState('loading');
+    video.play().catch(refused(mine));
   }
 
   function stop() {
-    ++playback;
-    flowing = false;
+    attempt++;
+    want = false;
     video.pause();
-    setState(current, 'paused');
+    setState('paused');
   }
 
-  video.addEventListener('loadedmetadata', () => {
-    const time = slides[current].time;
-    if (time && time < video.duration) video.currentTime = time;
+  const toggle = () => (want ? stop() : start());
+
+  function go(to: number) {
+    if (!entries[to]) return;
+    attempt++;
+    index = to;
+    shown = -1;
+    load();
+    show();
+    remember();
+    if (want) start();
+    else setState('paused');
+  }
+
+  /* ---------- Moving between Pieces ---------- */
+
+  function settle(ms = 220) {
+    art.style.transition = ms ? `transform ${ms}ms var(--ease-out), opacity ${ms}ms var(--ease-out)` : 'none';
+    art.style.transform = '';
+    art.style.opacity = '';
+  }
+
+  function step(direction: 1 | -1, how: Move) {
+    if (moving) return;
+    const to = index + direction;
+    if (!entries[to]) return settle();
+    if (how === 'button' || calm.matches) {
+      settle(0);
+      go(to);
+      return;
+    }
+    // The picture leaves on its last frame; the sound changes when it has gone.
+    moving = true;
+    video.pause();
+    art.style.transition = 'transform 180ms var(--ease-out), opacity 180ms var(--ease-out)';
+    art.style.transform = `translateX(${-direction * 60}%)`;
+    art.style.opacity = '0';
+    window.setTimeout(() => {
+      moving = false;
+      go(to);
+      art.style.transition = 'none';
+      art.style.transform = `translateX(${direction * 36}%)`;
+      void art.offsetWidth;
+      settle(240);
+    }, 180);
+  }
+
+  function back() {
+    if (video.currentTime > 3 || index === 0) {
+      video.currentTime = 0;
+      paint(0);
+    } else step(-1, 'button');
+  }
+
+  /* ---------- The media element ---------- */
+
+  function playing() {
+    if (!want) return;
+    art.dataset.frame = '';
+    setState('playing');
+    follow();
+  }
+  video.addEventListener('playing', playing);
+  video.addEventListener('waiting', () => {
+    if (want && !moving) setState('loading');
   });
-  video.addEventListener('playing', () => {
-    if (video.paused || !flowing) return;
-    slides[current].media.dataset.frame = '';
-    setState(current, 'playing');
+  video.addEventListener('timeupdate', () => {
+    if (want && !video.paused && video.readyState > 2 && root.dataset.state !== 'playing') playing();
+    if (!scrubbing) paint();
     loadAhead();
   });
   video.addEventListener('progress', loadAhead);
-  video.addEventListener('waiting', () => {
-    if (flowing && !video.paused) setState(current, 'loading');
-  });
-  video.addEventListener('timeupdate', () => {
-    slides[current].progress.style.transform = `scaleX(${video.duration ? video.currentTime / video.duration : 0})`;
-    loadAhead();
+  video.addEventListener('seeked', () => !scrubbing && paint());
+  video.addEventListener('durationchange', () => {
+    shown = -1;
+    paint();
   });
   video.addEventListener('ended', () => {
-    setState(current, 'paused');
-    if (slides[current + 1]) go(current + 1);
-    else flowing = false;
+    if (!want) return;
+    if (repeat) start();
+    else if (entries[index + 1]) step(1, 'auto');
+    else {
+      want = false;
+      setState('paused');
+    }
+  });
+  video.addEventListener('error', () => {
+    if (!want) return;
+    want = false;
+    setState('error');
   });
 
-  for (const [index, { section, toggle }] of slides.entries()) {
-    const press = () => {
-      if (current !== index) {
-        go(index);
-        return;
-      }
-      if (flowing) stop();
-      else {
-        flowing = true;
-        play(true);
-      }
-    };
-    toggle.addEventListener('click', press);
-    toggle.disabled = false;
-    section.querySelector('.st-toggle')!.addEventListener('click', press);
-    for (const button of section.querySelectorAll<HTMLButtonElement>('[data-step]')) {
-      button.addEventListener('click', () => {
-        const step = Number(button.dataset.step);
-        const target = slides[index + step];
-        if (!target) return;
-        go(index + step);
-        if (document.activeElement === button) {
-          const same = target.section.querySelector<HTMLButtonElement>(`[data-step="${step}"]:not([disabled])`);
-          (same ?? target.toggle).focus({ preventScroll: true });
-        }
-      });
-    }
-  }
-
-  go(current, 'instant');
-  prepare();
-
-  function syncScroll() {
-    cancelAnimationFrame(frame);
-    frame = requestAnimationFrame(() => {
-      const point = pageScroll.matches ? window.scrollY + innerHeight / 2 : root.scrollTop + root.clientHeight / 2;
-      const index = slides.findLastIndex(({ section }) => sectionTop(section) <= point);
-      if (index !== -1) select(index);
+  if ('mediaSession' in navigator) {
+    navigator.mediaSession.setActionHandler('play', start);
+    navigator.mediaSession.setActionHandler('pause', stop);
+    navigator.mediaSession.setActionHandler('nexttrack', () => step(1, 'button'));
+    navigator.mediaSession.setActionHandler('previoustrack', back);
+    navigator.mediaSession.setActionHandler('seekto', ({ seekTime }) => {
+      if (seekTime !== undefined) video.currentTime = seekTime;
     });
   }
-  root.addEventListener('scroll', syncScroll, { passive: true });
-  window.addEventListener('scroll', syncScroll, { passive: true });
-  pageScroll.addEventListener('change', () => go(current, 'instant'));
+
+  /* ---------- Controls ---------- */
+
+  play.addEventListener('click', toggle);
+  next.addEventListener('click', () => step(1, 'button'));
+  previous.addEventListener('click', back);
+  again.addEventListener('click', () => {
+    repeat = !repeat;
+    again.setAttribute('aria-pressed', String(repeat));
+  });
+
+  // Tap the picture to play or pause; swipe it sideways for the next or previous Piece.
+  {
+    let pointer: number | undefined;
+    let fromX = 0;
+    let fromY = 0;
+    let dragging = false;
+    let last = { x: 0, time: 0 };
+    let before = last;
+    wrap.addEventListener('pointerdown', (event) => {
+      if (event.pointerType === 'mouse' && event.button !== 0) return;
+      pointer = event.pointerId;
+      fromX = event.clientX;
+      fromY = event.clientY;
+      dragging = false;
+      last = before = { x: 0, time: event.timeStamp };
+    });
+    wrap.addEventListener('pointermove', (event) => {
+      if (event.pointerId !== pointer || moving) return;
+      const x = event.clientX - fromX;
+      if (!dragging) {
+        if (Math.abs(x) < 8 || Math.abs(x) < Math.abs(event.clientY - fromY)) return;
+        dragging = true;
+        wrap.setPointerCapture(event.pointerId);
+      }
+      before = last;
+      last = { x, time: event.timeStamp };
+      // Past the first or last Piece the picture resists.
+      const end = (x > 0 && index === 0) || (x < 0 && index === entries.length - 1);
+      art.style.transition = 'none';
+      art.style.transform = `translateX(${end ? x * 0.25 : x}px)`;
+    });
+    const release = (event: PointerEvent) => {
+      if (event.pointerId !== pointer) return;
+      pointer = undefined;
+      const x = event.clientX - fromX;
+      if (!dragging) {
+        if (event.type === 'pointerup' && Math.hypot(x, event.clientY - fromY) < 8) toggle();
+        return;
+      }
+      dragging = false;
+      const speed = (last.x - before.x) / Math.max(1, last.time - before.time);
+      if (event.type === 'pointerup' && (Math.abs(x) > wrap.clientWidth * 0.22 || Math.abs(speed) > 0.4))
+        step(x < 0 ? 1 : -1, 'swipe');
+      else settle();
+    };
+    wrap.addEventListener('pointerup', release);
+    wrap.addEventListener('pointercancel', release);
+  }
+
+  // The line follows the finger; the Piece jumps when the finger lifts.
+  scrub.addEventListener('pointerdown', (event) => {
+    if (event.pointerType === 'mouse' && event.button !== 0) return;
+    event.preventDefault();
+    scrub.setPointerCapture(event.pointerId);
+    const finished = new AbortController();
+    let part = 0;
+    const move = ({ clientX }: PointerEvent) => {
+      const box = scrub.getBoundingClientRect();
+      part = Math.min(1, Math.max(0, (clientX - box.left) / box.width));
+      paint(part * duration());
+    };
+    scrubbing = true;
+    scrub.dataset.drag = '';
+    move(event);
+    scrub.addEventListener('pointermove', move, { signal: finished.signal });
+    const end = () => {
+      finished.abort();
+      delete scrub.dataset.drag;
+      scrubbing = false;
+      video.currentTime = Math.min(duration() - 0.05, part * duration());
+    };
+    scrub.addEventListener('pointerup', end, { signal: finished.signal });
+    scrub.addEventListener('pointercancel', end, { signal: finished.signal });
+  });
+  scrub.addEventListener('keydown', (event) => {
+    const to = ({
+      ArrowLeft: video.currentTime - 1, ArrowRight: video.currentTime + 1, Home: 0, End: duration(),
+    } as Record<string, number>)[event.key];
+    if (to === undefined || event.metaKey || event.ctrlKey || event.altKey) return;
+    event.preventDefault();
+    event.stopPropagation();
+    video.currentTime = Math.min(duration() - 0.05, Math.max(0, to));
+    paint();
+  });
+
   document.addEventListener('keydown', (event) => {
     if (event.metaKey || event.ctrlKey || event.altKey || event.defaultPrevented) return;
-    if (event.key === 'ArrowDown' || event.key === 'ArrowUp') {
+    if (event.key === 'ArrowRight' || event.key === 'ArrowDown') {
       event.preventDefault();
-      go(current + (event.key === 'ArrowDown' ? 1 : -1));
+      step(1, 'button');
+    }
+    if (event.key === 'ArrowLeft' || event.key === 'ArrowUp') {
+      event.preventDefault();
+      back();
     }
     if (event.code === 'Space' && event.target === document.body) {
       event.preventDefault();
-      slides[current].toggle.click();
+      toggle();
     }
   });
+
+  video.preload = connection?.saveData ? 'none' : 'auto';
+  show();
+  if (poster.complete) tint();
+  play.disabled = false;
 }
 
 export {};
