@@ -3,11 +3,11 @@
 Start with an issue. Make the change on a branch, run `npm run check`,
 then open a pull request. That command builds, checks types, lints and
 inspects the built pages. Merge after the checks pass. GitHub Actions deploys
-the merge and checks the commit at the preview address. Keep the production
-address on its existing deployment until the cut-over.
+the merge and checks its commit at bach.wlkr.si. Keep the historical asset
+URLs available through the original custom-domain Worker.
 
 The Site contains no Pieces, media, Workshop code or private run records.
-Read the catalogue from the Vault when it is connected. Never publish
+Read the catalogue from the Vault. Never publish
 attempt counts, opinions about Pieces or rankings of the music. Use the term
 Piece. Show the recorded picture and sound at full quality.
 

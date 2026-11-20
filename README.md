@@ -5,24 +5,35 @@ Bach Bench gives AI models the same instruction to compose an original
 can be played and compared using measurements of the recording. Listeners
 judge the music.
 
-The private Workshop runs models and records and checks their output. The
-public Vault keeps the published Pieces and provides an index. The Site
-presents that catalogue. The Worker reads the public version 1 index on each
-catalogue request. Vault caching lasts 60 seconds. Piece analytics read detail
-from the same revision. The chart renderer reads those details directly from
-the Vault, and the Site build contains no Piece data.
+## Three repositories
 
-On the preview hostname, open `/gallery?vault=staging` to use the fixed
-`staging/site-96/index.json` object on the Vault. That selection follows links
-for 30 minutes in the same browser. Open `/gallery?vault=live` to clear it.
-The Worker uses the live index on every other hostname.
+| Part | Responsibility |
+| --- | --- |
+| [Workshop](https://github.com/wlkr-si/bach-workshop) (private) | Runs models, records and checks Pieces, keeps private run records. |
+| [Vault](https://github.com/wlkr-si/bach-vault) | Holds the permanent record and original media and publishes the active index. |
+| Site (this repository) | Displays and plays the Vault catalogue at [bach.wlkr.si](https://bach.wlkr.si). |
 
-Use Node 24 or later, run `npm ci`, then `npm run dev` to work locally. Run
-`npm run check` before opening a pull request. GitHub Actions checks pull
-requests and deploys merges to the Cloudflare preview. Deployment reads
-`PREVIEW_URL` from repository variables and uses `CLOUDFLARE_ACCOUNT_ID`
-and a Cloudflare Individual Workers Editor token from repository secrets.
-The token is scoped to the existing `bach-bench-site` Worker.
+**A feature.** Open an issue and a Site pull request. Use Node 24 or later,
+`npm ci`, `npm run dev` and `npm run check`. After checks and merge,
+GitHub Actions deploys the Site Worker and verifies its commit at
+`https://bach.wlkr.si/build-info.json`. The deployment reads the
+`PRODUCTION_URL` repository variable and worker-scoped credentials.
+
+**A Piece.** Run `node bench/add.mjs "<model>" --effort high` in the Workshop.
+The Vault checks the resulting PR and republishes its index after merge.
+The Worker reads the index at request time. The Site picks up the Piece
+automatically as the 60-second cache refreshes.
+
+The production route serves the Site Worker. The original custom-domain
+Worker still serves old shared assets and the Results alias, and removing
+the production route restores the previous Site. Keep those shared addresses
+available when changing the routing.
+
+To review a Workshop staging lane on the
+[preview hostname](https://bach-bench-site.walkerworlddiscord.workers.dev/gallery),
+open `/gallery?vault=staging&lane=<lane>`. That choice follows links in the
+browser for 30 minutes. `/gallery?vault=live` clears it. Production always
+reads the live Vault index.
 
 See [LICENSE](LICENSE) and the [third-party and brand notices](public/THIRD_PARTY_NOTICES.md).
 
