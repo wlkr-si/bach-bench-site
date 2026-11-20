@@ -77,12 +77,24 @@ async function render(targets) {
       // the local renderer so it can use the same browser chart code.
       const context = await browser.newContext({ viewport: { width: 1440, height: 900 }, reducedMotion: 'reduce' });
       await context.route(url => url.origin === vaultOrigin && url.pathname.endsWith('/detail.json'), async route => {
-        const response = await vaultResponse(new URL(route.request().url()).pathname);
+        const path = new URL(route.request().url()).pathname;
+        let status;
+        let body;
+        try {
+          const response = await vaultResponse(path);
+          status = response.status;
+          body = await response.text();
+        } catch (error) {
+          // Give the chart a failed read so its detail retry can recover.
+          console.warn(`Vault detail read failed for ${path}: ${error.message}`);
+          status = 502;
+          body = '{}';
+        }
         await route.fulfill({
-          status: response.status,
+          status,
           headers: { 'content-type': 'application/json', 'access-control-allow-origin': address },
-          body: await response.text(),
-        });
+          body,
+        }).catch(error => console.warn(`Could not relay Vault detail ${path}: ${error.message}`));
       });
       for (const { source, revision, pieces } of targets) {
         const files = [];
