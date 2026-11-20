@@ -52,35 +52,33 @@ try {
         const readings = [];
         const record = (event, data = {}) => readings.push({ event, ms: performance.now(), ...data });
         window.bachMeasure = { readings, record };
-        const first = () => document.querySelector('.st-slide');
+        const stage = () => document.querySelector('.st');
         document.addEventListener('click', (event) => {
           if (event.target.closest('[data-play]')) record('tap');
         }, true);
         for (const name of ['playing', 'waiting', 'pause', 'ended']) {
           document.addEventListener(name, ({ target }) => {
             if (!(target instanceof HTMLVideoElement)) return;
-            const slide = target.closest('.st-slide');
-            if (!slide) return;
-            const index = [...slide.parentElement.children].filter((item) => item.matches('.st-slide')).indexOf(slide);
+            if (!target.closest('.st')) return;
+            // One media element plays every Piece; the Stage says which one it holds.
+            const index = Number(stage().dataset.index);
             record(name, { index, time: target.currentTime, source: target.currentSrc });
             if (name === 'playing') {
               target.requestVideoFrameCallback(() => {
-                if (!target.paused && target.closest('.st-slide') === slide)
+                if (!target.paused && Number(stage().dataset.index) === index)
                   record('picture', { index, audio: target.webkitAudioDecodedByteCount, muted: target.muted });
               });
             }
           }, true);
         }
         new MutationObserver(() => {
-          const button = first()?.querySelector('.st-word--wait');
-          if (!button || getComputedStyle(button).display === 'none' ||
-              readings.some(({ event }) => event === 'loading')) return;
+          if (stage()?.dataset.state !== 'loading' || readings.some(({ event }) => event === 'loading')) return;
           requestAnimationFrame(() => record('loading'));
         }).observe(document, { subtree: true, attributes: true, attributeFilter: ['data-state'] });
       });
       await page.goto(new URL('/listen/', origin).href, { waitUntil: 'commit' });
       const poster = await page.evaluate(async () => {
-        const firstPoster = () => document.querySelector('.st-slide img, .st-slide video[poster]');
+        const firstPoster = () => document.querySelector('.st-poster');
         while (!firstPoster()) await new Promise(requestAnimationFrame);
         const target = firstPoster();
         const url = target instanceof HTMLImageElement ? target.src : target.poster;
@@ -94,31 +92,32 @@ try {
         await new Promise((resolve) => requestAnimationFrame(() => requestAnimationFrame(resolve)));
         return performance.now();
       });
-      await page.locator('.st-slide').first().locator('[data-play]').tap();
+      await page.locator('[data-play]').tap();
       await page.waitForFunction(() => window.bachMeasure.readings.some(({ event, index, time }) =>
         event === 'playing' && index === 0 && time < 1), null, { timeout: 120_000 });
-      await page.waitForFunction(() => document.querySelector('.st-slide video')?.currentTime >= 9,
+      await page.waitForFunction(() => document.querySelector('.st video')?.currentTime >= 9,
         null, { timeout: 120_000 });
-      const { width, height } = mobile.viewport;
-      const point = (y) => ({ x: width / 2, y });
+      // Swipe the picture sideways to the next Piece.
+      const picture = await page.locator('.st-artwrap').boundingBox();
+      const point = (part) => ({ x: picture.x + picture.width * part, y: picture.y + picture.height / 2 });
       await page.evaluate(() => window.bachMeasure.record('swipe'));
-      await cdp.send('Input.dispatchTouchEvent', { type: 'touchStart', touchPoints: [point(height * 0.82)] });
+      await cdp.send('Input.dispatchTouchEvent', { type: 'touchStart', touchPoints: [point(0.82)] });
       for (let step = 1; step <= 8; step++) {
         await cdp.send('Input.dispatchTouchEvent', {
           type: 'touchMove',
-          touchPoints: [point(height * (0.82 - step * 0.075))],
+          touchPoints: [point(0.82 - step * 0.075)],
         });
       }
       await cdp.send('Input.dispatchTouchEvent', { type: 'touchEnd', touchPoints: [] });
       await page.waitForFunction(() => window.bachMeasure.readings.some(({ event, index }) =>
         event === 'picture' && index === 1), null, { timeout: 120_000 });
       const bufferedClip = await page.evaluate(async () => {
-        const video = document.querySelectorAll('.st-slide')[1].querySelector('video');
+        const video = document.querySelector('.st video');
         if (!video.currentSrc.startsWith('blob:')) return null;
         const bytes = await (await fetch(video.currentSrc)).arrayBuffer();
         const digest = await crypto.subtle.digest('SHA-256', bytes);
         return {
-          publishedUrl: video.closest('.st-slide').querySelector('[data-save-clip]').href,
+          publishedUrl: document.querySelector('.st [data-save-clip]').href,
           bytes: bytes.byteLength,
           sha256: [...new Uint8Array(digest)].map((value) => value.toString(16).padStart(2, '0')).join(''),
         };

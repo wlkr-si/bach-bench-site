@@ -7,24 +7,41 @@ const paths = {
   play: 'M5.25 3.6v8.8a.6.6 0 0 0 .9.52l7.04-4.4a.6.6 0 0 0 0-1.04L6.15 3.08a.6.6 0 0 0-.9.52Z',
   pause: 'M5.5 3.75v8.5M10.5 3.75v8.5',
   check: 'M3.25 8.25l3 3 6.5-6.5',
-  up: 'M4 10l4-4 4 4',
-  down: 'M4 6l4 4 4-4',
   back: 'M12.75 8h-9.5M7 4.25 3.25 8 7 11.75',
+  repeat: 'M11.25 1.75 13.5 4l-2.25 2.25M2.5 7.5v-1A2.5 2.5 0 0 1 5 4h8.5M4.75 14.25 2.5 12l2.25-2.25M13.5 8.5v1A2.5 2.5 0 0 1 11 12H2.5',
+};
+// The player's transport, drawn solid on a 24px grid.
+const solid = {
+  'play-solid': 'M8 5.3v13.4a1 1 0 0 0 1.52.85l10.9-6.7a1 1 0 0 0 0-1.7L9.52 4.45A1 1 0 0 0 8 5.3Z',
+  'pause-solid': 'M7.2 4.75h1.85a1.2 1.2 0 0 1 1.2 1.2v12.1a1.2 1.2 0 0 1-1.2 1.2H7.2a1.2 1.2 0 0 1-1.2-1.2V5.95a1.2 1.2 0 0 1 1.2-1.2Zm7.75 0h1.85a1.2 1.2 0 0 1 1.2 1.2v12.1a1.2 1.2 0 0 1-1.2 1.2h-1.85a1.2 1.2 0 0 1-1.2-1.2V5.95a1.2 1.2 0 0 1 1.2-1.2Z',
+  next: 'M5 5.7v12.6a.9.9 0 0 0 1.38.76L15.5 13.2v5.05a1 1 0 0 0 2 0V5.75a1 1 0 0 0-2 0v5.05L6.38 4.94A.9.9 0 0 0 5 5.7Z',
+  previous: 'M19 5.7v12.6a.9.9 0 0 1-1.38.76L8.5 13.2v5.05a1 1 0 0 1-2 0V5.75a1 1 0 0 1 2 0v5.05l9.12-5.86A.9.9 0 0 1 19 5.7Z',
 };
 const { name, size = 16 } = Astro.props as {
-  name: keyof typeof paths;
-  size?: 16 | 20;
+  name: keyof typeof paths | keyof typeof solid;
+  size?: 16 | 20 | 26 | 28;
 };
+const filled = name in solid;
 ---
 
-<svg
-  viewBox="0 0 16 16"
-  width={size}
-  height={size}
-  fill="none"
-  stroke="currentColor"
-  stroke-width="1.5"
-  stroke-linecap="round"
-  stroke-linejoin="round"
-  aria-hidden="true"><path d={paths[name]}></path></svg
->
+{
+  filled ? (
+    <svg viewBox="0 0 24 24" width={size} height={size} fill="currentColor" aria-hidden="true">
+      <path d={solid[name as keyof typeof solid]} />
+    </svg>
+  ) : (
+    <svg
+      viewBox="0 0 16 16"
+      width={size}
+      height={size}
+      fill="none"
+      stroke="currentColor"
+      stroke-width="1.5"
+      stroke-linecap="round"
+      stroke-linejoin="round"
+      aria-hidden="true"
+    >
+      <path d={paths[name as keyof typeof paths]} />
+    </svg>
+  )
+}
