@@ -1,4 +1,6 @@
 import { readDetail } from './vault';
+import chartFonts from '../styles/chart-fonts.css?raw';
+import { HOME_COLUMNS, HOME_NAME_BAND, HOME_SAY, homeCaption } from './home-charts.mjs';
 import { provenance } from './results';
 
 'use strict';
@@ -82,11 +84,11 @@ const M = {
   time:       { better:'low', label:'Time to make', lower:'time to make', axis:'Time to make (s)', get:p => p.timeSeconds, log:true, na:'Not recorded', tick:fmtSecTick, fmt:v => Math.round(v) + ' s', say:'Time to make runs from sending the Instruction to receiving the finished reply.' },
   thinking:   { better:'low', label:'Thinking tokens', lower:'thinking tokens', axis:'Thinking tokens', get:p => p.thinkingTokens, log:true, na:'Not reported', tick:fmtK, fmt:fmtInt, say:SAY_TOKENS },
   output:     { better:'low', label:'Output tokens', lower:'output tokens', axis:'Output tokens', get:p => p.outputTokens, log:true, na:'Not reported', tick:fmtK, fmt:fmtInt, say:SAY_TOKENS },
-  complexity: { better:'high', label:'Complexity', axis:'Complexity', get:p => p.complexity, score:true, na:'Not scored', tick:String, fmt:fmtScore, say:'Complexity measures how much is going on: pitches, rhythm, range and change in the sound, and detail, colour and motion in the picture. A fixed formula scores each recorded Clip from 0 to 100.' },
+  complexity: { better:'high', label:'Complexity', axis:'Complexity', get:p => p.complexity, score:true, na:'Not scored', tick:String, fmt:fmtScore, say:HOME_SAY.complexity },
   music:      { better:'high', label:'Music complexity', axis:'Music complexity', get:p => p.musicComplexity, score:true, na:'Not scored', tick:String, fmt:fmtScore, say:'Music complexity is the sound half of Complexity, by a fixed formula.' },
   picture:    { better:'high', label:'Picture complexity', axis:'Picture complexity', get:p => p.pictureComplexity, score:true, na:'Not scored', tick:String, fmt:fmtScore, say:'Picture complexity is the image half of Complexity, by a fixed formula.' },
-  sync:       { better:'high', label:'Sync', axis:'Sync', get:p => p.sync, score:true, na:'Not scored', tick:String, fmt:fmtScore, say:'Sync measures how closely visible changes line up with audible attacks and shifts in the sound. A fixed formula scores each recorded Clip from 0 to 100.' },
-  uniqueness: { better:'high', label:'Uniqueness', axis:'Uniqueness', get:p => p.uniqueness, score:true, na:'Not scored', tick:String, fmt:fmtScore, say:'Uniqueness measures how far each Piece’s sound, picture, structure and title sit from every other published Piece. A fixed formula scores it from 0 to 100, so it shifts as Pieces are added.' },
+  sync:       { better:'high', label:'Sync', axis:'Sync', get:p => p.sync, score:true, na:'Not scored', tick:String, fmt:fmtScore, say:HOME_SAY.sync },
+  uniqueness: { better:'high', label:'Uniqueness', axis:'Uniqueness', get:p => p.uniqueness, score:true, na:'Not scored', tick:String, fmt:fmtScore, say:HOME_SAY.uniqueness },
   balance:    { better:'high', label:'Balance', axis:'Balance', get:p => p.balance, score:true, na:'Not scored', tick:String, fmt:fmtScore, say:'Balance is the lowest of a Piece’s field standings on Complexity, Sync and Uniqueness, so it shifts as models are added.' },
   release:    { label:'Model release', axis:'Model release', get:p => parseDate(p.releaseDate), time:true, na:'Release date unknown', fmt:fmtDate, say:'Release date is the lab’s announcement date.' },
 };
@@ -532,7 +534,7 @@ function renderMap(ctx){
 function renderColumns(ctx){
   const { S, w, def } = ctx, vm = M[def.value];
   const rows = ctx.pieces.filter(p => vm.get(p) != null).sort((a, b) => vm.get(b) - vm.get(a) || a.name.localeCompare(b.name))
-    .concat(ctx.pieces.filter(p => vm.get(p) == null));
+    .concat(ctx.pieces.filter(p => vm.get(p) == null)).slice(0, def.limit);
   const n = Math.max(rows.length, 1), ANG = 50, COS = Math.cos(ANG * Math.PI / 180), SIN = Math.sin(ANG * Math.PI / 180);
   // the left gutter holds the scale and the slanted name of the first bar
   let slot = w / n, nameSize, nameW, padL = 0;
@@ -545,7 +547,8 @@ function renderColumns(ctx){
   const size = Math.min(S.tick, slot * .62), mk = Math.min(S.mk, slot * .3), Sx = Object.assign({}, S, { mk });
   const bw = Math.max(2, Math.min(slot * .68, S.mk * 5)), rr = Math.min(bw / 2, S.hair * 2.5);
   // a fixed height (the page's plot or an export frame) holds the bars and the slanted names together
-  const top = size * 1.6, below = mk * 3.4 + S.labelGap * 2, nameH = nameW * SIN + S.hair;
+  // on the page the home charts keep one height for the names, so their cards match the space held for them
+  const top = size * 1.6, below = mk * 3.4 + S.labelGap * 2, nameH = Math.max(nameW * SIN + S.hair, ctx.exp ? 0 : def.nameBand || 0);
   const plotH = ctx.exp ? Math.max(S.rowH * 3, ctx.h - top - below - nameH) : ctx.h || S.rowH * 10, base = top + plotH;
   const sc = linScale(0, 100, base, top);
   const nameY = base + below, H = nameY + nameH;
@@ -636,8 +639,9 @@ const CHARTS = [
   { key:'words', render:renderWords, controls:[], defaults:{},
     title: () => 'Words in titles', caption: () => 'Each mark is one model that used the word in its Piece’s title. Words like “the” are left out.',
     tip: () => [] },
-  ...['complexity', 'sync', 'uniqueness'].map(k => ({ key:'col-' + k, home:true, render:renderColumns, value:k, controls:[], defaults:{},
-    title: () => M[k].label, caption: () => M[k].say, height: () => 168,
+  ...['complexity', 'sync', 'uniqueness'].map(k => ({ key:'col-' + k, home:true, render:renderColumns, value:k, limit:HOME_COLUMNS, nameBand:HOME_NAME_BAND, controls:[], defaults:{},
+    title: () => M[k].label, height: () => 168,
+    caption: () => homeCaption(k, visiblePieces().filter(p => M[k].get(p) != null).length),
     tip: p => k === 'complexity' ? [['Complexity', fmtScore(p.complexity)], ['Music', fmtScore(p.musicComplexity)], ['Picture', fmtScore(p.pictureComplexity)]]
       : k === 'sync' ? [['Sync', fmtScore(p.sync)], ['Event', fmtScore(p.syncEvent)], ['Continuous', fmtScore(p.syncCont)]]
       : [['Uniqueness', fmtScore(p.uniqueness)]] })),
@@ -922,7 +926,12 @@ class ChartView {
   }
   showTip(id){
     const p = pieces().find(q => q.id === id), h = this.scene.hits.find(q => q.id === id); if (!p || !h) return;
-    const c = state.c[this.def.key], rows = this.def.tip(p, this.def.cfg ? this.def.cfg(c) : c);
+    if (!p.detailed){
+      // The home page reads a Piece's detail when its tooltip first opens.
+      p.detailed = 'reading';
+      void readPieceDetail(p).then(detail => { Object.assign(p, detail, { detailed: 'read' }); if (this.focusId === id) this.showTip(id); }, () => { p.detailed = null; });
+    }
+    const c = state.c[this.def.key], rows = this.def.tip(p, this.def.cfg ? this.def.cfg(c) : c).filter(([, v]) => p.detailed === 'read' || v !== 'n/a');
     this.tip.innerHTML = `<div class="who">${markerIcon(p.L)}<span>${esc(p.name)}</span>${p.effort && p.fam.startsWith('f:') ? `<em>${esc(p.effort)}</em>` : ''}</div><div class="ttl">${esc(p.title)}</div>${rows.length ? `<dl>${rows.map(([k, v]) => `<dt>${esc(k)}</dt><dd>${esc(v)}</dd>`).join('')}</dl>` : ''}<a href="/p/${encodeURIComponent(p.id)}" target="_blank" rel="noopener" tabindex="-1">Open Piece <span aria-hidden="true">→</span></a>`;
     const ax = h.w ? h.px : h.x, ay = h.w ? h.py : h.y, W = this.plot.clientWidth, H = this.plot.clientHeight;
     this.tip.classList.add('show'); this.tip.classList.toggle('pinned', this.pinned);
@@ -1037,31 +1046,43 @@ const exportBlob = async (view, fmt) => { const c = await exportCanvas(view, fmt
 window.__bach = { exportDataURL: async (key, fmt) => (await exportCanvas(views.find(v => v.def.key === key), fmt)).toDataURL("image/png"), state, get views(){ return views; } };
 
 /* ============ 16. BOOT ============ */
+let revision = '';
+async function readPieceDetail({ id, detailUrl }){
+  const { scores, measurements } = await readDetail({ slug: id, detailUrl }, revision);
+  const note = document.querySelector(`[data-wall-source="${CSS.escape(id)}"]`);
+  if (note) note.textContent = provenance(measurements.wallSeconds);
+  return {
+    releaseDate: scores.releaseDate,
+    thinkingTokens: scores.thinkingTokens,
+    outputTokens: scores.outputTokens,
+    linesOfCode: scores.linesOfCode,
+    musicComplexity: scores.musicComplexity,
+    pictureComplexity: scores.pictureComplexity,
+    syncEvent: scores.syncMeasures.event.score,
+    syncCont: scores.syncMeasures.continuous.score,
+    lagMs: scores.syncMeasures.lagMs,
+  };
+}
 (async () => {
   cssTokens();
+  // The charts measure and export with their own embedded faces.
+  const faces = document.createElement('style');
+  faces.id = 'fontfaces';
+  faces.textContent = chartFonts;
+  document.head.append(faces);
   await Promise.all(['500 11px Geist', '600 15px Geist', 'italic 400 12px Geist', '400 10px "Geist Mono"', '500 10px "Geist Mono"'].map(f => document.fonts.load(f)));
   const raw = JSON.parse(document.getElementById('bach-data').textContent);
+  revision = raw.revision;
   const unavailable = document.getElementById('chart-unavailable');
+  const root = document.getElementById('charts'), home = root.dataset.set === 'home';
   const detailById = new Map();
-  while (detailById.size < raw.pieces.length) {
+  // The home charts plot values the page already carries, so they draw at once.
+  while (!home && detailById.size < raw.pieces.length) {
     // Fetch independently of the Worker and keep each successful read on retry.
     const pending = raw.pieces.filter(({ id }) => !detailById.has(id));
     for (let i = 0; i < pending.length; i += 8) {
-      await Promise.allSettled(pending.slice(i, i + 8).map(async ({ id, detailUrl }) => {
-        const { scores, measurements } = await readDetail({ slug: id, detailUrl }, raw.revision);
-        detailById.set(id, {
-          releaseDate: scores.releaseDate,
-          thinkingTokens: scores.thinkingTokens,
-          outputTokens: scores.outputTokens,
-          linesOfCode: scores.linesOfCode,
-          musicComplexity: scores.musicComplexity,
-          pictureComplexity: scores.pictureComplexity,
-          syncEvent: scores.syncMeasures.event.score,
-          syncCont: scores.syncMeasures.continuous.score,
-          lagMs: scores.syncMeasures.lagMs,
-        });
-        const note = document.querySelector(`[data-wall-source="${CSS.escape(id)}"]`);
-        if (note) note.textContent = provenance(measurements.wallSeconds);
+      await Promise.allSettled(pending.slice(i, i + 8).map(async (piece) => {
+        detailById.set(piece.id, { ...await readPieceDetail(piece), detailed: 'read' });
       }));
     }
     if (detailById.size < raw.pieces.length) {
@@ -1073,9 +1094,9 @@ window.__bach = { exportDataURL: async (key, fmt) => (await exportCanvas(views.f
   field = prepare({ ...raw, pieces: raw.pieces.map(p => ({ ...p, ...detailById.get(p.id) })) });
   readHash();
   toolbar.mount();
-  const root = document.getElementById('charts'), home = root.dataset.set === 'home';
   views = CHARTS.filter(d => !!d.home === home).map(d => new ChartView(d));
-  views.forEach(v => root.appendChild(v.sec));
+  // The cards take the place of the ones that held their space while loading.
+  root.replaceChildren(...views.map(v => v.sec));
   commit();
   const linked = new URLSearchParams(location.hash.slice(1)).get('chart') || new URLSearchParams(location.search).get('chart');
   if (linked) document.getElementById('chart-' + linked)?.scrollIntoView({ block: 'start' });

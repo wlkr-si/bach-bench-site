@@ -142,3 +142,9 @@ svg.pl.dim .ln [data-fam]:not(.on){opacity:.15}
 .lb-list .none{padding:8px 10px;color:var(--faint);cursor:default}
 /* Hold the charts' space while they draw, so the page below doesn't jump. */
 .charts:empty{min-height:100vh}
+/* Home: each card holds its place while the charts load, so nothing below moves.
+   The parts match a drawn card: head, legend row, plot, caption. */
+.cf-wait .cf-head{min-height:24px}
+.cf-wait .cf-title{font-size:15px}
+.cf-wait-plot{height:calc(30px + 6px + var(--plot))}
+.cf-wait .cf-cap{font-size:12px;visibility:hidden}
