@@ -4,25 +4,45 @@ import { readShareImages } from './lib/share-images';
 
 const previewHost = 'bach-bench-site.walkerworlddiscord.workers.dev';
 const stagingCookie = 'bach-staging';
+const productionHost = 'bach.wlkr.si';
+const legacyAssets = /^\/(?:_astro|analytics|charts)\//;
+const pagePaths = /^\/(?:listen|gallery|analysis|method|results|p\/[^/]+(?:\/analytics)?)$/;
+const stagingLane = /^[a-z0-9]+(?:-[a-z0-9]+)*$/;
 
 export const onRequest = defineMiddleware(async (context, next) => {
-  const path = context.url.pathname.replace(/\/$/, '') || '/';
+  const { url, cookies, locals } = context;
+  if (url.hostname === productionHost && (context.request.method === 'GET' || context.request.method === 'HEAD')) {
+    // The preceding Workers route can fetch the original Custom Domain.
+    // New hashed assets are served before this middleware runs.
+    if (legacyAssets.test(url.pathname) || ['/results/', '/404', '/404/'].includes(url.pathname)) {
+      return fetch(context.request);
+    }
+    const page = url.pathname.replace(/\/index\.html$/, '').replace(/\/$/, '');
+    if ((pagePaths.test(page) || url.pathname === '/index.html') && url.pathname !== page + '/') {
+      return context.redirect(page + '/' + url.search, 307);
+    }
+  }
+
+  const path = url.pathname.replace(/\/$/, '') || '/';
   const pieceRoute = path.match(/^\/p\/([^/]+)(\/analytics)?$/);
   if (!pieceRoute && !['/', '/listen', '/gallery', '/gallery/more', '/analysis'].includes(path)) return next();
 
-  const { url, cookies, locals } = context;
-  let staging = false;
+  let staging: string | undefined;
   if (url.hostname === previewHost) {
     const selection = url.searchParams.get('vault');
     if (selection === 'staging') {
-      cookies.set(stagingCookie, '1', {
+      const lane = url.searchParams.get('lane');
+      if (lane !== null && !stagingLane.test(lane)) return new Response(null, { status: 400 });
+      staging = lane ? `workshop/${lane}` : 'site-96';
+      cookies.set(stagingCookie, staging, {
         path: '/', maxAge: 1800, httpOnly: true, sameSite: 'lax', secure: true,
       });
-      staging = true;
     } else if (selection === 'live') {
       cookies.delete(stagingCookie, { path: '/' });
     } else {
-      staging = cookies.get(stagingCookie)?.value === '1';
+      const stored = cookies.get(stagingCookie)?.value;
+      if (stored === '1' || stored === 'site-96') staging = 'site-96';
+      if (stored?.startsWith('workshop/') && stagingLane.test(stored.slice(9))) staging = stored;
     }
   }
 
