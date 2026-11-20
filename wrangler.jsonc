@@ -2,7 +2,7 @@
   "name": "bach-bench-site",
   "compatibility_date": "2026-11-18",
   "compatibility_flags": ["nodejs_compat"],
-  "main": "@astrojs/cloudflare/entrypoints/server",
+  "main": "./src/worker.ts",
   "workers_dev": true,
   "preview_urls": false,
   "assets": {
