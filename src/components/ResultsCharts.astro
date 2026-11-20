@@ -2,6 +2,7 @@
 import '../styles/charts.css';
 import { scoreMetrics } from '../lib/scores';
 import { HOME_PLOT_HEIGHT, homeCaption } from '../lib/home-charts.mjs';
+import { ANALYSIS_CHARTS } from '../lib/analysis-charts.mjs';
 
 const { set = 'results' } = Astro.props;
 // The home page draws these three; their cards hold the space until the charts arrive.
@@ -19,6 +20,11 @@ const chartData = {
 
 {set === 'results' && <div class="chart-toolbar" id="toolbar" />}
 <div class="charts" id="charts" data-set={set}>
+  {set === 'results' && ANALYSIS_CHARTS.map(({ key, question, height }) => (
+    <section class="q" data-chart-slot={key} style={`min-height:${height}px`}>
+      <h2 class="q-title">{question}</h2>
+    </section>
+  ))}
   {set === 'home' && homeCharts.map(({ key, label }) => (
     <section class="cf cf-wait" aria-hidden="true" style={`--plot:${HOME_PLOT_HEIGHT}px`}>
       <div class="cf-head"><h2 class="cf-title">{label}</h2></div>

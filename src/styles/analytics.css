@@ -326,3 +326,151 @@
 .toolbar .btn--solid {
   flex: 0 0 auto;
 }
+
+/* =============== Analysis: the field in numbers, then one question per chart =============== */
+.glance {
+  display: grid;
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+  gap: 12px;
+}
+.tile-label {
+  font-size: 12px;
+  color: var(--muted);
+}
+.tile-value {
+  margin-top: 2px;
+  font: 500 26px/1.15 var(--mono);
+  letter-spacing: -0.03em;
+  color: var(--ink);
+}
+.tile-note {
+  margin-top: 4px;
+  font-size: 12px;
+  color: var(--faint);
+}
+.spread {
+  margin: 12px 0 24px;
+  padding: 6px 16px;
+}
+.spread-row {
+  display: grid;
+  grid-template-columns: 104px minmax(0, 1fr) 132px;
+  align-items: center;
+  gap: 16px;
+  height: 44px;
+}
+.spread-row + .spread-row {
+  border-top: 1px solid var(--line);
+}
+.spread-label {
+  font-weight: 500;
+  color: var(--ink);
+}
+.spread-note {
+  font: 400 12px var(--mono);
+  text-align: right;
+  color: var(--muted);
+}
+/* One tick per model on a line from 0 to 100, in its lab's colour. */
+.spread-line {
+  position: relative;
+  height: 28px;
+  margin: 0 2px;
+  background: linear-gradient(var(--line), var(--line)) center / 100% 1px no-repeat;
+}
+.spread-mark {
+  position: absolute;
+  top: 4px;
+  width: 3px;
+  height: 20px;
+  margin-left: -1.5px;
+  border-radius: 1.5px;
+  background: var(--lab);
+  transition: opacity 140ms ease-out;
+}
+.spread-mark::before {
+  content: '';
+  position: absolute;
+  inset: -4px -3px;
+}
+.spread.picked .spread-mark:not(.on) {
+  opacity: 0.2;
+}
+.spread-mark.on {
+  z-index: 2;
+  box-shadow: 0 0 0 1.5px var(--card), 0 0 0 2.5px var(--ink);
+}
+.spread-mark span {
+  position: absolute;
+  bottom: calc(100% + 8px);
+  left: 50%;
+  z-index: 30;
+  padding: 5px 9px;
+  border: 1px solid var(--line-2);
+  border-radius: 8px;
+  background: #111;
+  box-shadow: 0 16px 40px rgb(0 0 0 / 55%);
+  font-size: 12px;
+  font-weight: 500;
+  white-space: nowrap;
+  color: var(--ink);
+  pointer-events: none;
+  opacity: 0;
+  transform: translate(-50%, 2px) scale(0.98);
+  transform-origin: bottom center;
+  transition:
+    opacity 120ms ease-out,
+    transform 120ms var(--ease-out);
+}
+.spread-mark span b {
+  margin-left: 6px;
+  font: 500 12px var(--mono);
+}
+.spread-mark.on span {
+  opacity: 1;
+  transform: translate(-50%, 0);
+}
+.results-page .charts[data-set='results'] {
+  gap: 56px;
+  margin-top: 40px;
+}
+.q-title {
+  margin-bottom: 12px;
+  font-size: 22px;
+  font-weight: 600;
+  line-height: 1.15;
+  letter-spacing: -0.035em;
+  text-wrap: balance;
+  color: var(--ink);
+}
+.results-page > .q {
+  margin-top: 56px;
+}
+@media (max-width: 900px) {
+  .glance {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+  .tile-value {
+    font-size: 20px;
+  }
+}
+@media (max-width: 640px) {
+  .spread-row {
+    grid-template-columns: 84px minmax(0, 1fr);
+  }
+  .spread-note {
+    display: none;
+  }
+  .q-title {
+    font-size: 19px;
+  }
+  .results-page .charts[data-set='results'] {
+    gap: 40px;
+  }
+}
+@media (prefers-reduced-motion: reduce) {
+  .spread-mark,
+  .spread-mark span {
+    transition: none;
+  }
+}

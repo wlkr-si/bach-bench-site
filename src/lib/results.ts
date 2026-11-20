@@ -29,3 +29,20 @@ export function provenance(reading?: Reading) {
     ? ' (recovered from log)'
     : '';
 }
+
+export function median(values: number[]) {
+  const sorted = [...values].sort((a, b) => a - b);
+  const middle = sorted.length >> 1;
+  return sorted.length % 2 ? sorted[middle] : (sorted[middle - 1] + sorted[middle]) / 2;
+}
+
+/* Money and time as the charts write them. */
+export function formatUsd(value: number) {
+  return '$' + (value >= 1 ? value.toFixed(2) : value >= 0.01 ? value.toFixed(3) : value.toFixed(4));
+}
+
+export function formatDuration(seconds: number) {
+  return seconds < 90
+    ? `${Math.round(seconds)} s`
+    : `${Math.floor(seconds / 60)} min ${String(Math.round(seconds % 60)).padStart(2, '0')} s`;
+}
