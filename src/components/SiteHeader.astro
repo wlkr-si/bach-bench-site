@@ -4,9 +4,9 @@ interface Props {
 }
 const { current } = Astro.props;
 const links = [
-  ['stage', '/listen', 'Listen'],
-  ['gallery', '/gallery', 'Gallery'],
-  ['analysis', '/analysis', 'Analysis'],
+  ['stage', '/listen/', 'Listen'],
+  ['gallery', '/gallery/', 'Gallery'],
+  ['analysis', '/analysis/', 'Analysis'],
 ] as const;
 ---
 
@@ -42,3 +42,9 @@ const links = [
     }
   </nav>
 </header>
+
+<style>
+  .site-nav a:focus-visible {
+    outline-offset: 4px;
+  }
+</style>

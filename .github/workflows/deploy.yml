@@ -1,4 +1,4 @@
-name: Deploy preview
+name: Deploy Site
 on:
   push:
     branches: [main]
@@ -7,7 +7,7 @@ permissions:
   contents: read
 
 concurrency:
-  group: bach-bench-site-preview
+  group: bach-bench-site-production
   cancel-in-progress: false
 
 jobs:
@@ -25,12 +25,12 @@ jobs:
       - run: npm ci
       - name: Check and identify the build
         env:
-          PUBLIC_SITE_URL: ${{ vars.PREVIEW_URL }}
+          PUBLIC_SITE_URL: ${{ vars.PRODUCTION_URL }}
         run: |
           set -eu
           case "$PUBLIC_SITE_URL" in
-            https://bach-bench-site.*.workers.dev) ;;
-            *) echo 'PREVIEW_URL must target the Site preview on workers.dev.' >&2; exit 1 ;;
+            https://bach.wlkr.si) ;;
+            *) echo 'PRODUCTION_URL must be https://bach.wlkr.si.' >&2; exit 1 ;;
           esac
           npm run check
           printf '{"commit":"%s"}\n' "$GITHUB_SHA" > dist/client/build-info.json
@@ -45,7 +45,7 @@ jobs:
           else
             echo "Skipping superseded revision $GITHUB_SHA."
           fi
-      - name: Deploy preview Worker
+      - name: Deploy Site Worker
         if: steps.revision.outputs.current == 'true'
         env:
           CLOUDFLARE_ACCOUNT_ID: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
@@ -58,15 +58,15 @@ jobs:
       - name: Verify the deployed commit
         if: steps.revision.outputs.current == 'true'
         env:
-          PREVIEW_URL: ${{ vars.PREVIEW_URL }}
+          PRODUCTION_URL: ${{ vars.PRODUCTION_URL }}
         run: |
           for try in {1..20}; do
-            if body=$(curl -fsS --max-time 8 "$PREVIEW_URL/build-info.json?revision=$GITHUB_SHA") &&
+            if body=$(curl -fsS --max-time 8 "$PRODUCTION_URL/build-info.json?revision=$GITHUB_SHA") &&
                 jq -e --arg sha "$GITHUB_SHA" '.commit == $sha' <<< "$body" >/dev/null; then
-              printf '%s\n' "$PREVIEW_URL/build-info.json" "$body"
+              printf '%s\n' "$PRODUCTION_URL/build-info.json" "$body"
               exit 0
             fi
             sleep 3
           done
-          echo "Preview did not report $GITHUB_SHA." >&2
+          echo "Production did not report $GITHUB_SHA." >&2
           exit 1
