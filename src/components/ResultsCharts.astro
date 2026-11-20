@@ -1,7 +1,11 @@
 ---
 import '../styles/charts.css';
+import { scoreMetrics } from '../lib/scores';
+import { HOME_PLOT_HEIGHT, homeCaption } from '../lib/home-charts.mjs';
 
 const { set = 'results' } = Astro.props;
+// The home page draws these three; their cards hold the space until the charts arrive.
+const homeCharts = scoreMetrics.slice(0, 3);
 const { revision, titleWordCounts, pieces } = Astro.locals.vault;
 const chartData = {
   revision,
@@ -14,7 +18,17 @@ const chartData = {
 ---
 
 {set === 'results' && <div class="chart-toolbar" id="toolbar" />}
-<div class="charts" id="charts" data-set={set}></div>
+<div class="charts" id="charts" data-set={set}>
+  {set === 'home' && homeCharts.map(({ key, label }) => (
+    <section class="cf cf-wait" aria-hidden="true" style={`--plot:${HOME_PLOT_HEIGHT}px`}>
+      <div class="cf-head"><h2 class="cf-title">{label}</h2></div>
+      <div class="cf-wait-plot"></div>
+      <div class="cf-foot">
+        <p class="cf-cap">{homeCaption(key, pieces.filter((piece) => piece.scores[key] != null).length)}</p>
+      </div>
+    </section>
+  ))}
+</div>
 <p id="chart-unavailable" hidden>Charts are temporarily unavailable.</p>
 <script
   is:inline
@@ -24,14 +38,8 @@ const chartData = {
 />
 <script>
   const chart = document.querySelector<HTMLElement>('#charts')!;
-  async function draw() {
-    const { default: fonts } = await import('../styles/chart-fonts.css?raw');
-    const style = document.createElement('style');
-    style.id = 'fontfaces';
-    style.textContent = fonts;
-    document.head.append(style);
-    await import('../lib/charts.mjs');
-  }
+  // One download carries the chart code and the fonts it measures with.
+  const draw = () => import('../lib/charts.mjs');
 
   function start() {
     void draw().catch(() => {
@@ -45,7 +53,7 @@ const chartData = {
       if (!entry.isIntersecting) return;
       observer.disconnect();
       start();
-    }, { rootMargin: '100px 0px' });
+    }, { rootMargin: '600px 0px' });
     observer.observe(chart);
   }
 </script>
